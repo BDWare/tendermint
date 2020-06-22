@@ -1,7 +1,7 @@
 syntax = "proto3";
 package tendermint.proto.libs.bits;
 
-option go_package = "github.com/tendermint/tendermint/proto/libs/bits";
+option go_package = "github.com/bdware/tendermint/proto/libs/bits";
 
 message BitArray {
   int64           bits  = 1;

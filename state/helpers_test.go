@@ -7,14 +7,14 @@ import (
 
 	dbm "github.com/tendermint/tm-db"
 
-	abci "github.com/tendermint/tendermint/abci/types"
-	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/crypto/ed25519"
-	tmrand "github.com/tendermint/tendermint/libs/rand"
-	"github.com/tendermint/tendermint/proxy"
-	sm "github.com/tendermint/tendermint/state"
-	"github.com/tendermint/tendermint/types"
-	tmtime "github.com/tendermint/tendermint/types/time"
+	abci "github.com/bdware/tendermint/abci/types"
+	"github.com/bdware/tendermint/crypto"
+	"github.com/bdware/tendermint/crypto/ed25519"
+	tmrand "github.com/bdware/tendermint/libs/rand"
+	"github.com/bdware/tendermint/proxy"
+	sm "github.com/bdware/tendermint/state"
+	"github.com/bdware/tendermint/types"
+	tmtime "github.com/bdware/tendermint/types/time"
 )
 
 type paramsChangeTestCase struct {

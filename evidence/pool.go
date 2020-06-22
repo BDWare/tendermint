@@ -7,10 +7,10 @@ import (
 
 	dbm "github.com/tendermint/tm-db"
 
-	clist "github.com/tendermint/tendermint/libs/clist"
-	"github.com/tendermint/tendermint/libs/log"
-	sm "github.com/tendermint/tendermint/state"
-	"github.com/tendermint/tendermint/types"
+	clist "github.com/bdware/tendermint/libs/clist"
+	"github.com/bdware/tendermint/libs/log"
+	sm "github.com/bdware/tendermint/state"
+	"github.com/bdware/tendermint/types"
 )
 
 // Pool maintains a pool of valid evidence

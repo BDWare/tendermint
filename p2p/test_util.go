@@ -7,14 +7,14 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/crypto/ed25519"
-	"github.com/tendermint/tendermint/libs/log"
-	tmnet "github.com/tendermint/tendermint/libs/net"
-	tmrand "github.com/tendermint/tendermint/libs/rand"
+	"github.com/bdware/tendermint/crypto"
+	"github.com/bdware/tendermint/crypto/ed25519"
+	"github.com/bdware/tendermint/libs/log"
+	tmnet "github.com/bdware/tendermint/libs/net"
+	tmrand "github.com/bdware/tendermint/libs/rand"
 
-	"github.com/tendermint/tendermint/config"
-	"github.com/tendermint/tendermint/p2p/conn"
+	"github.com/bdware/tendermint/config"
+	"github.com/bdware/tendermint/p2p/conn"
 )
 
 const testCh = 0x01

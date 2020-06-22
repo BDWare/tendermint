@@ -3,8 +3,8 @@ package privval
 import (
 	"fmt"
 
-	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/types"
+	"github.com/bdware/tendermint/crypto"
+	"github.com/bdware/tendermint/types"
 )
 
 func DefaultValidationRequestHandler(

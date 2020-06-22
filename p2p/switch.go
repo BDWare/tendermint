@@ -8,11 +8,11 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/tendermint/tendermint/config"
-	"github.com/tendermint/tendermint/libs/cmap"
-	"github.com/tendermint/tendermint/libs/rand"
-	"github.com/tendermint/tendermint/libs/service"
-	"github.com/tendermint/tendermint/p2p/conn"
+	"github.com/bdware/tendermint/config"
+	"github.com/bdware/tendermint/libs/cmap"
+	"github.com/bdware/tendermint/libs/rand"
+	"github.com/bdware/tendermint/libs/service"
+	"github.com/bdware/tendermint/p2p/conn"
 )
 
 const (

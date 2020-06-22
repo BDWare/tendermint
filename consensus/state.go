@@ -10,18 +10,18 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/tendermint/tendermint/libs/fail"
-	"github.com/tendermint/tendermint/libs/log"
-	tmos "github.com/tendermint/tendermint/libs/os"
-	"github.com/tendermint/tendermint/libs/service"
-	tmtime "github.com/tendermint/tendermint/types/time"
+	"github.com/bdware/tendermint/libs/fail"
+	"github.com/bdware/tendermint/libs/log"
+	tmos "github.com/bdware/tendermint/libs/os"
+	"github.com/bdware/tendermint/libs/service"
+	tmtime "github.com/bdware/tendermint/types/time"
 
-	cfg "github.com/tendermint/tendermint/config"
-	cstypes "github.com/tendermint/tendermint/consensus/types"
-	tmevents "github.com/tendermint/tendermint/libs/events"
-	"github.com/tendermint/tendermint/p2p"
-	sm "github.com/tendermint/tendermint/state"
-	"github.com/tendermint/tendermint/types"
+	cfg "github.com/bdware/tendermint/config"
+	cstypes "github.com/bdware/tendermint/consensus/types"
+	tmevents "github.com/bdware/tendermint/libs/events"
+	"github.com/bdware/tendermint/p2p"
+	sm "github.com/bdware/tendermint/state"
+	"github.com/bdware/tendermint/types"
 )
 
 //-----------------------------------------------------------------------------

@@ -7,7 +7,7 @@ import (
 
 	amino "github.com/tendermint/go-amino"
 
-	types "github.com/tendermint/tendermint/rpc/jsonrpc/types"
+	types "github.com/bdware/tendermint/rpc/jsonrpc/types"
 )
 
 func unmarshalResponseBytes(

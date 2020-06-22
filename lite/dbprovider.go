@@ -8,10 +8,10 @@ import (
 	amino "github.com/tendermint/go-amino"
 	dbm "github.com/tendermint/tm-db"
 
-	cryptoamino "github.com/tendermint/tendermint/crypto/encoding/amino"
-	log "github.com/tendermint/tendermint/libs/log"
-	lerr "github.com/tendermint/tendermint/lite/errors"
-	"github.com/tendermint/tendermint/types"
+	cryptoamino "github.com/bdware/tendermint/crypto/encoding/amino"
+	log "github.com/bdware/tendermint/libs/log"
+	lerr "github.com/bdware/tendermint/lite/errors"
+	"github.com/bdware/tendermint/types"
 )
 
 var _ PersistentProvider = (*DBProvider)(nil)

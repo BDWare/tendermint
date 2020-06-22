@@ -9,14 +9,14 @@ package rpc
 //	"github.com/stretchr/testify/assert"
 //	"github.com/stretchr/testify/require"
 
-//	"github.com/tendermint/tendermint/abci/example/kvstore"
-//	"github.com/tendermint/tendermint/crypto/merkle"
-//	"github.com/tendermint/tendermint/lite"
-//	certclient "github.com/tendermint/tendermint/lite/client"
-//	nm "github.com/tendermint/tendermint/node"
-//	"github.com/tendermint/tendermint/rpc/client"
-//	rpctest "github.com/tendermint/tendermint/rpc/test"
-//	"github.com/tendermint/tendermint/types"
+//	"github.com/bdware/tendermint/abci/example/kvstore"
+//	"github.com/bdware/tendermint/crypto/merkle"
+//	"github.com/bdware/tendermint/lite"
+//	certclient "github.com/bdware/tendermint/lite/client"
+//	nm "github.com/bdware/tendermint/node"
+//	"github.com/bdware/tendermint/rpc/client"
+//	rpctest "github.com/bdware/tendermint/rpc/test"
+//	"github.com/bdware/tendermint/types"
 //)
 
 //var node *nm.Node

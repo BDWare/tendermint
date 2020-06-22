@@ -5,9 +5,9 @@ package privval
 
 import (
 	fmt "fmt"
+	keys "github.com/bdware/tendermint/proto/crypto/keys"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
-	keys "github.com/tendermint/tendermint/proto/crypto/keys"
 	math "math"
 )
 

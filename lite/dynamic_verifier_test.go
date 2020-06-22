@@ -10,9 +10,9 @@ import (
 
 	dbm "github.com/tendermint/tm-db"
 
-	"github.com/tendermint/tendermint/crypto/tmhash"
-	log "github.com/tendermint/tendermint/libs/log"
-	"github.com/tendermint/tendermint/types"
+	"github.com/bdware/tendermint/crypto/tmhash"
+	log "github.com/bdware/tendermint/libs/log"
+	"github.com/bdware/tendermint/types"
 )
 
 const testChainID = "inquiry-test"

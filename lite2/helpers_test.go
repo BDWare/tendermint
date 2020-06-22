@@ -3,12 +3,12 @@ package lite_test
 import (
 	"time"
 
-	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/crypto/ed25519"
-	"github.com/tendermint/tendermint/crypto/tmhash"
+	"github.com/bdware/tendermint/crypto"
+	"github.com/bdware/tendermint/crypto/ed25519"
+	"github.com/bdware/tendermint/crypto/tmhash"
 
-	"github.com/tendermint/tendermint/types"
-	tmtime "github.com/tendermint/tendermint/types/time"
+	"github.com/bdware/tendermint/types"
+	tmtime "github.com/bdware/tendermint/types/time"
 )
 
 // privKeys is a helper type for testing.

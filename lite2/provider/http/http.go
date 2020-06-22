@@ -6,10 +6,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/tendermint/tendermint/lite2/provider"
-	rpcclient "github.com/tendermint/tendermint/rpc/client"
-	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
-	"github.com/tendermint/tendermint/types"
+	"github.com/bdware/tendermint/lite2/provider"
+	rpcclient "github.com/bdware/tendermint/rpc/client"
+	rpchttp "github.com/bdware/tendermint/rpc/client/http"
+	"github.com/bdware/tendermint/types"
 )
 
 // This is very brittle, see: https://github.com/tendermint/tendermint/issues/4740

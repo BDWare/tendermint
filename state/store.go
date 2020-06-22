@@ -5,10 +5,10 @@ import (
 
 	dbm "github.com/tendermint/tm-db"
 
-	abci "github.com/tendermint/tendermint/abci/types"
-	tmmath "github.com/tendermint/tendermint/libs/math"
-	tmos "github.com/tendermint/tendermint/libs/os"
-	"github.com/tendermint/tendermint/types"
+	abci "github.com/bdware/tendermint/abci/types"
+	tmmath "github.com/bdware/tendermint/libs/math"
+	tmos "github.com/bdware/tendermint/libs/os"
+	"github.com/bdware/tendermint/types"
 )
 
 const (

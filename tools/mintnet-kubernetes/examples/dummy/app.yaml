@@ -81,7 +81,7 @@ spec:
       containers:
       - name: tm
         imagePullPolicy: IfNotPresent
-        image: tendermint/tendermint:0.10.0
+        image: bdware/tendermint:0.10.0
         ports:
         - containerPort: 26656
           name: p2p

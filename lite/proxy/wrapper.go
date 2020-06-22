@@ -3,12 +3,12 @@ package proxy
 import (
 	"context"
 
-	"github.com/tendermint/tendermint/crypto/merkle"
-	"github.com/tendermint/tendermint/libs/bytes"
-	"github.com/tendermint/tendermint/lite"
-	rpcclient "github.com/tendermint/tendermint/rpc/client"
-	ctypes "github.com/tendermint/tendermint/rpc/core/types"
-	rpctypes "github.com/tendermint/tendermint/rpc/jsonrpc/types"
+	"github.com/bdware/tendermint/crypto/merkle"
+	"github.com/bdware/tendermint/libs/bytes"
+	"github.com/bdware/tendermint/lite"
+	rpcclient "github.com/bdware/tendermint/rpc/client"
+	ctypes "github.com/bdware/tendermint/rpc/core/types"
+	rpctypes "github.com/bdware/tendermint/rpc/jsonrpc/types"
 )
 
 var _ rpcclient.Client = Wrapper{}

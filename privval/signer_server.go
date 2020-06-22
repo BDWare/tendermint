@@ -4,8 +4,8 @@ import (
 	"io"
 	"sync"
 
-	"github.com/tendermint/tendermint/libs/service"
-	"github.com/tendermint/tendermint/types"
+	"github.com/bdware/tendermint/libs/service"
+	"github.com/bdware/tendermint/types"
 )
 
 // ValidationRequestHandlerFunc handles different remoteSigner requests

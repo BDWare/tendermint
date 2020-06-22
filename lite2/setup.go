@@ -3,9 +3,9 @@ package lite
 import (
 	"time"
 
-	"github.com/tendermint/tendermint/lite2/provider"
-	"github.com/tendermint/tendermint/lite2/provider/http"
-	"github.com/tendermint/tendermint/lite2/store"
+	"github.com/bdware/tendermint/lite2/provider"
+	"github.com/bdware/tendermint/lite2/provider/http"
+	"github.com/bdware/tendermint/lite2/store"
 )
 
 // NewHTTPClient initiates an instance of a lite client using HTTP addresses

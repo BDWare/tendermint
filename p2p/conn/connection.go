@@ -17,11 +17,11 @@ import (
 
 	amino "github.com/tendermint/go-amino"
 
-	flow "github.com/tendermint/tendermint/libs/flowrate"
-	"github.com/tendermint/tendermint/libs/log"
-	tmmath "github.com/tendermint/tendermint/libs/math"
-	"github.com/tendermint/tendermint/libs/service"
-	"github.com/tendermint/tendermint/libs/timer"
+	flow "github.com/bdware/tendermint/libs/flowrate"
+	"github.com/bdware/tendermint/libs/log"
+	tmmath "github.com/bdware/tendermint/libs/math"
+	"github.com/bdware/tendermint/libs/service"
+	"github.com/bdware/tendermint/libs/timer"
 )
 
 const (

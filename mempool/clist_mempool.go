@@ -8,16 +8,16 @@ import (
 	"sync"
 	"sync/atomic"
 
-	abci "github.com/tendermint/tendermint/abci/types"
-	cfg "github.com/tendermint/tendermint/config"
-	auto "github.com/tendermint/tendermint/libs/autofile"
-	"github.com/tendermint/tendermint/libs/clist"
-	"github.com/tendermint/tendermint/libs/log"
-	tmmath "github.com/tendermint/tendermint/libs/math"
-	tmos "github.com/tendermint/tendermint/libs/os"
-	"github.com/tendermint/tendermint/p2p"
-	"github.com/tendermint/tendermint/proxy"
-	"github.com/tendermint/tendermint/types"
+	abci "github.com/bdware/tendermint/abci/types"
+	cfg "github.com/bdware/tendermint/config"
+	auto "github.com/bdware/tendermint/libs/autofile"
+	"github.com/bdware/tendermint/libs/clist"
+	"github.com/bdware/tendermint/libs/log"
+	tmmath "github.com/bdware/tendermint/libs/math"
+	tmos "github.com/bdware/tendermint/libs/os"
+	"github.com/bdware/tendermint/p2p"
+	"github.com/bdware/tendermint/proxy"
+	"github.com/bdware/tendermint/types"
 )
 
 //--------------------------------------------------------------------------------

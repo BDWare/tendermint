@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/tendermint/tendermint/libs/bytes"
-	tmstrings "github.com/tendermint/tendermint/libs/strings"
-	"github.com/tendermint/tendermint/version"
+	"github.com/bdware/tendermint/libs/bytes"
+	tmstrings "github.com/bdware/tendermint/libs/strings"
+	"github.com/bdware/tendermint/version"
 )
 
 const (

@@ -17,12 +17,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/crypto/ed25519"
-	"github.com/tendermint/tendermint/crypto/secp256k1"
-	"github.com/tendermint/tendermint/libs/async"
-	tmos "github.com/tendermint/tendermint/libs/os"
-	tmrand "github.com/tendermint/tendermint/libs/rand"
+	"github.com/bdware/tendermint/crypto"
+	"github.com/bdware/tendermint/crypto/ed25519"
+	"github.com/bdware/tendermint/crypto/secp256k1"
+	"github.com/bdware/tendermint/libs/async"
+	tmos "github.com/bdware/tendermint/libs/os"
+	tmrand "github.com/bdware/tendermint/libs/rand"
 )
 
 type kvstoreConn struct {

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tendermint/tendermint/libs/bytes"
-	tmproto "github.com/tendermint/tendermint/proto/types"
-	tmtime "github.com/tendermint/tendermint/types/time"
+	"github.com/bdware/tendermint/libs/bytes"
+	tmproto "github.com/bdware/tendermint/proto/types"
+	tmtime "github.com/bdware/tendermint/types/time"
 )
 
 var (

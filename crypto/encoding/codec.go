@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/crypto/ed25519"
-	pc "github.com/tendermint/tendermint/proto/crypto/keys"
+	"github.com/bdware/tendermint/crypto"
+	"github.com/bdware/tendermint/crypto/ed25519"
+	pc "github.com/bdware/tendermint/proto/crypto/keys"
 )
 
 // PubKeyToProto takes crypto.PubKey and transforms it to a protobuf Pubkey

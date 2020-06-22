@@ -6,9 +6,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/tendermint/tendermint/crypto/ed25519"
-	"github.com/tendermint/tendermint/libs/log"
-	tmnet "github.com/tendermint/tendermint/libs/net"
+	"github.com/bdware/tendermint/crypto/ed25519"
+	"github.com/bdware/tendermint/libs/log"
+	tmnet "github.com/bdware/tendermint/libs/net"
 )
 
 // IsConnTimeout returns a boolean indicating whether the error is known to

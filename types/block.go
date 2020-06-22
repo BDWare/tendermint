@@ -9,15 +9,15 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/crypto/merkle"
-	"github.com/tendermint/tendermint/crypto/tmhash"
-	"github.com/tendermint/tendermint/libs/bits"
-	tmbytes "github.com/tendermint/tendermint/libs/bytes"
-	tmmath "github.com/tendermint/tendermint/libs/math"
-	tmproto "github.com/tendermint/tendermint/proto/types"
-	tmversion "github.com/tendermint/tendermint/proto/version"
-	"github.com/tendermint/tendermint/version"
+	"github.com/bdware/tendermint/crypto"
+	"github.com/bdware/tendermint/crypto/merkle"
+	"github.com/bdware/tendermint/crypto/tmhash"
+	"github.com/bdware/tendermint/libs/bits"
+	tmbytes "github.com/bdware/tendermint/libs/bytes"
+	tmmath "github.com/bdware/tendermint/libs/math"
+	tmproto "github.com/bdware/tendermint/proto/types"
+	tmversion "github.com/bdware/tendermint/proto/version"
+	"github.com/bdware/tendermint/version"
 )
 
 const (

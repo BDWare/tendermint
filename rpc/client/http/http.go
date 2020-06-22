@@ -11,14 +11,14 @@ import (
 
 	amino "github.com/tendermint/go-amino"
 
-	"github.com/tendermint/tendermint/libs/bytes"
-	"github.com/tendermint/tendermint/libs/log"
-	tmpubsub "github.com/tendermint/tendermint/libs/pubsub"
-	"github.com/tendermint/tendermint/libs/service"
-	rpcclient "github.com/tendermint/tendermint/rpc/client"
-	ctypes "github.com/tendermint/tendermint/rpc/core/types"
-	jsonrpcclient "github.com/tendermint/tendermint/rpc/jsonrpc/client"
-	"github.com/tendermint/tendermint/types"
+	"github.com/bdware/tendermint/libs/bytes"
+	"github.com/bdware/tendermint/libs/log"
+	tmpubsub "github.com/bdware/tendermint/libs/pubsub"
+	"github.com/bdware/tendermint/libs/service"
+	rpcclient "github.com/bdware/tendermint/rpc/client"
+	ctypes "github.com/bdware/tendermint/rpc/core/types"
+	jsonrpcclient "github.com/bdware/tendermint/rpc/jsonrpc/client"
+	"github.com/bdware/tendermint/types"
 )
 
 /*

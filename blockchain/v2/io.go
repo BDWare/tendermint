@@ -3,9 +3,9 @@ package v2
 import (
 	"fmt"
 
-	"github.com/tendermint/tendermint/p2p"
-	"github.com/tendermint/tendermint/state"
-	"github.com/tendermint/tendermint/types"
+	"github.com/bdware/tendermint/p2p"
+	"github.com/bdware/tendermint/state"
+	"github.com/bdware/tendermint/types"
 )
 
 type iIO interface {

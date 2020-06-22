@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
 
-	"github.com/tendermint/tendermint/types"
+	"github.com/bdware/tendermint/types"
 )
 
 //-------------------------------------------

@@ -5,6 +5,8 @@ package types
 
 import (
 	fmt "fmt"
+	_ "github.com/bdware/tendermint/crypto/merkle"
+	_ "github.com/bdware/tendermint/libs/kv"
 	_ "github.com/gogo/protobuf/gogoproto"
 	github_com_gogo_protobuf_jsonpb "github.com/gogo/protobuf/jsonpb"
 	github_com_gogo_protobuf_proto "github.com/gogo/protobuf/proto"
@@ -12,8 +14,6 @@ import (
 	golang_proto "github.com/golang/protobuf/proto"
 	_ "github.com/golang/protobuf/ptypes/duration"
 	_ "github.com/golang/protobuf/ptypes/timestamp"
-	_ "github.com/tendermint/tendermint/crypto/merkle"
-	_ "github.com/tendermint/tendermint/libs/kv"
 	math "math"
 	math_rand "math/rand"
 	testing "testing"

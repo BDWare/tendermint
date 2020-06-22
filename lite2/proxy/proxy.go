@@ -9,11 +9,11 @@ import (
 
 	amino "github.com/tendermint/go-amino"
 
-	"github.com/tendermint/tendermint/libs/log"
-	tmpubsub "github.com/tendermint/tendermint/libs/pubsub"
-	lrpc "github.com/tendermint/tendermint/lite2/rpc"
-	ctypes "github.com/tendermint/tendermint/rpc/core/types"
-	rpcserver "github.com/tendermint/tendermint/rpc/jsonrpc/server"
+	"github.com/bdware/tendermint/libs/log"
+	tmpubsub "github.com/bdware/tendermint/libs/pubsub"
+	lrpc "github.com/bdware/tendermint/lite2/rpc"
+	ctypes "github.com/bdware/tendermint/rpc/core/types"
+	rpcserver "github.com/bdware/tendermint/rpc/jsonrpc/server"
 )
 
 // A Proxy defines parameters for running an HTTP server proxy.

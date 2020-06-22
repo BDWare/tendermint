@@ -5,12 +5,12 @@ package types
 
 import (
 	fmt "fmt"
+	merkle "github.com/bdware/tendermint/proto/crypto/merkle"
+	bits "github.com/bdware/tendermint/proto/libs/bits"
+	version "github.com/bdware/tendermint/proto/version"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
 	_ "github.com/golang/protobuf/ptypes/timestamp"
-	merkle "github.com/tendermint/tendermint/proto/crypto/merkle"
-	bits "github.com/tendermint/tendermint/proto/libs/bits"
-	version "github.com/tendermint/tendermint/proto/version"
 	math "math"
 	time "time"
 )

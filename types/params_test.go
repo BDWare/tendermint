@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	abci "github.com/tendermint/tendermint/abci/types"
+	abci "github.com/bdware/tendermint/abci/types"
 )
 
 var (

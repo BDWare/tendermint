@@ -6,9 +6,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/tendermint/tendermint/crypto"
-	tmnet "github.com/tendermint/tendermint/libs/net"
-	p2pconn "github.com/tendermint/tendermint/p2p/conn"
+	"github.com/bdware/tendermint/crypto"
+	tmnet "github.com/bdware/tendermint/libs/net"
+	p2pconn "github.com/bdware/tendermint/p2p/conn"
 )
 
 // Socket errors.

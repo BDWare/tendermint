@@ -14,12 +14,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bdware/tendermint/crypto"
+	tmmath "github.com/bdware/tendermint/libs/math"
+	tmrand "github.com/bdware/tendermint/libs/rand"
+	"github.com/bdware/tendermint/libs/service"
+	"github.com/bdware/tendermint/p2p"
 	"github.com/minio/highwayhash"
-	"github.com/tendermint/tendermint/crypto"
-	tmmath "github.com/tendermint/tendermint/libs/math"
-	tmrand "github.com/tendermint/tendermint/libs/rand"
-	"github.com/tendermint/tendermint/libs/service"
-	"github.com/tendermint/tendermint/p2p"
 )
 
 const (
