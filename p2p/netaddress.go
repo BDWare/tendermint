@@ -8,6 +8,8 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	libp2pPeer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/multiformats/go-multiaddr"
 	"net"
 	"strconv"
 	"strings"
@@ -238,6 +240,21 @@ func (na *NetAddress) HasID() bool {
 // Local returns true if it is a local address.
 func (na *NetAddress) Local() bool {
 	return na.IP.IsLoopback() || zero4.Contains(na.IP)
+}
+
+func (na *NetAddress) Multiaddr() multiaddr.Multiaddr {
+	// tcp or udp ?
+	str := "/ip4/" + na.IP.String() + "/tcp/" + strconv.FormatUint(uint64(na.Port), 10)
+	ma, _ := multiaddr.NewMultiaddr(str)
+	return ma
+}
+
+func (na *NetAddress) LpAddrInfo() libp2pPeer.AddrInfo {
+	maddr := na.Multiaddr()
+	return libp2pPeer.AddrInfo{
+		Addrs: []multiaddr.Multiaddr{maddr},
+		ID:    ID2lpID(na.ID),
+	}
 }
 
 // ReachabilityTo checks whenever o can be reached from na.

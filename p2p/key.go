@@ -8,7 +8,10 @@ import (
 
 	"github.com/bdware/tendermint/crypto"
 	"github.com/bdware/tendermint/crypto/ed25519"
+	"github.com/bdware/tendermint/crypto/tmhash"
 	tmos "github.com/bdware/tendermint/libs/os"
+	libp2p_crypto "github.com/libp2p/go-libp2p-core/crypto"
+	libp2p_peer "github.com/libp2p/go-libp2p-core/peer"
 )
 
 // ID is a hex-encoded crypto.Address
@@ -40,8 +43,18 @@ func (nodeKey *NodeKey) PubKey() crypto.PubKey {
 
 // PubKeyToID returns the ID corresponding to the given PubKey.
 // It's the hex-encoding of the pubKey.Address().
+//func PubKeyToID(pubKey crypto.PubKey) ID {
+//	return ID(hex.EncodeToString(pubKey.Address()))
+//}
+
+// PubKeyToID returns libp2p peer.ID
 func PubKeyToID(pubKey crypto.PubKey) ID {
-	return ID(hex.EncodeToString(pubKey.Address()))
+	if pk, ok := pubKey.(lpPubKey); ok {
+		peerID, _ := libp2p_peer.IDFromPublicKey(pk.K)
+		return lpID2ID(peerID)
+	} else {
+		return ID(hex.EncodeToString(pubKey.Address()))
+	}
 }
 
 // LoadOrGenNodeKey attempts to load the NodeKey from the given filePath.
@@ -85,6 +98,60 @@ func genNodeKey(filePath string) (*NodeKey, error) {
 		return nil, err
 	}
 	return nodeKey, nil
+}
+
+type lpPrivKey struct {
+	K libp2p_crypto.PrivKey
+}
+
+func (l lpPrivKey) Bytes() []byte {
+	bs, _ := l.K.Bytes()
+	return bs
+}
+
+func (l lpPrivKey) Sign(msg []byte) ([]byte, error) {
+	return l.K.Sign(msg)
+}
+
+func (l lpPrivKey) PubKey() crypto.PubKey {
+	return lpPubKey{
+		l.K.GetPublic(),
+	}
+}
+
+func (l lpPrivKey) Equals(key crypto.PrivKey) bool {
+	other, ok := key.(lpPrivKey)
+	if !ok {
+		return false
+	}
+	return l.K.Equals(other.K)
+}
+
+type lpPubKey struct {
+	K libp2p_crypto.PubKey
+}
+
+func (l lpPubKey) Address() crypto.Address {
+	bs,_ := l.K.Raw()
+	return crypto.Address(tmhash.SumTruncated(bs))
+}
+
+func (l lpPubKey) Bytes() []byte {
+	bs, _ := l.K.Bytes()
+	return bs
+}
+
+func (l lpPubKey) VerifyBytes(msg []byte, sig []byte) bool {
+	ok, _ := l.K.Verify(msg, sig)
+	return ok
+}
+
+func (l lpPubKey) Equals(key crypto.PubKey) bool {
+	other, ok := key.(lpPubKey)
+	if !ok {
+		return false
+	}
+	return l.K.Equals(other.K)
 }
 
 //------------------------------------------------------------------------------
