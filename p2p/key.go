@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 
 	"github.com/bdware/tendermint/crypto"
-	"github.com/bdware/tendermint/crypto/ed25519"
 	"github.com/bdware/tendermint/crypto/tmhash"
 	tmos "github.com/bdware/tendermint/libs/os"
 	libp2p_crypto "github.com/libp2p/go-libp2p-core/crypto"
@@ -83,13 +82,31 @@ func LoadNodeKey(filePath string) (*NodeKey, error) {
 	return nodeKey, nil
 }
 
+//func genNodeKey(filePath string) (*NodeKey, error) {
+//	privKey := ed25519.GenPrivKey()
+//	nodeKey := &NodeKey{
+//		PrivKey: privKey,
+//	}
+//
+//	jsonBytes, err := cdc.MarshalJSON(nodeKey)
+//	if err != nil {
+//		return nil, err
+//	}
+//	err = ioutil.WriteFile(filePath, jsonBytes, 0600)
+//	if err != nil {
+//		return nil, err
+//	}
+//	return nodeKey, nil
+//}
+
 func genNodeKey(filePath string) (*NodeKey, error) {
-	privKey := ed25519.GenPrivKey()
+	privKey, _, _ := libp2p_crypto.GenerateEd25519Key(crypto.CReader())
+	//privKey := ed25519.GenPrivKey()
 	nodeKey := &NodeKey{
-		PrivKey: privKey,
+		PrivKey: lpPrivKey{K: privKey},
 	}
 
-	jsonBytes, err := cdc.MarshalJSON(nodeKey)
+	jsonBytes, err := privKey.Bytes()
 	if err != nil {
 		return nil, err
 	}
