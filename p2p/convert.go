@@ -38,6 +38,13 @@ func Multiaddr2NetAddr(id libp2pPeer.ID, ma multiaddr.Multiaddr)  *NetAddress{
 	}
 }
 
+func Multiaddr2DialString(ma multiaddr.Multiaddr) string{
+	s := ma.String() // for example "/ip4/127.0.0.1/udp/1234"
+	//s = s[5:]
+	parts := strings.Split(s, "/")
+	return parts[2] + ":" + parts[4]
+}
+
 func ID2lpID(id ID) libp2pPeer.ID{
 	return libp2pPeer.ID(id)
 }
