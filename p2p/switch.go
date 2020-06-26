@@ -2,6 +2,9 @@ package p2p
 
 import (
 	"fmt"
+	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/protocol"
 	"math"
 	"sync"
 	"time"
@@ -30,6 +33,17 @@ const (
 	reconnectBackOffAttempts    = 10
 	reconnectBackOffBaseSeconds = 3
 )
+
+const (
+	ChannelPrefix = "tdm-"
+)
+
+// like "tdm-1" "tdm-2" ...
+func protocolForChannel(chID byte) protocol.ID {
+	proto := fmt.Sprintf("%s%d", ChannelPrefix, chID)
+	return protocol.ID(proto)
+}
+
 
 // MConnConfig returns an MConnConfig with fields updated
 // from the P2PConfig.
@@ -91,6 +105,7 @@ type Switch struct {
 	rng *rand.Rand // seed for randomizing dial times and orders
 
 	metrics *Metrics
+	host host.Host
 }
 
 // NetAddress returns the address the switch is listening on.
@@ -150,6 +165,11 @@ func WithMetrics(metrics *Metrics) SwitchOption {
 	return func(sw *Switch) { sw.metrics = metrics }
 }
 
+// WithLibp2pHost sets the libp2p host
+func WithLibp2pHost(h host.Host) SwitchOption {
+	return func(sw *Switch) { sw.host = h }
+}
+
 //---------------------------------------------------------------------
 // Switch setup
 
@@ -164,6 +184,17 @@ func (sw *Switch) AddReactor(name string, reactor Reactor) Reactor {
 		}
 		sw.chDescs = append(sw.chDescs, chDesc)
 		sw.reactorsByCh[chID] = reactor
+
+		sw.host.SetStreamHandler(protocolForChannel(chID), func(s network.Stream) {
+			id := lpID2ID(s.Conn().RemotePeer())
+			p := sw.peers.Get(id)
+			if p == nil {
+				s.Reset()
+			}
+			lpp, _ := p.(*lpPeer)
+			lpp.streams[chID] = s
+			go lpp.recvRoutine(s, chID)
+		})
 	}
 	sw.reactors[name] = reactor
 	reactor.SetSwitch(sw)
