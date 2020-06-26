@@ -758,7 +758,7 @@ func NewNode(config *cfg.Config,
 		privValidator, csMetrics, fastSync, eventBus, consensusLogger,
 	)
 
-	nodeInfo, err := makeNodeInfo(config, nodeKey, txIndexer, genDoc, state)
+	nodeInfo, err := makeNodeInfo(config, nodeKey, txIndexer, genDoc, state, host)
 	if err != nil {
 		return nil, err
 	}
@@ -1199,6 +1199,7 @@ func makeNodeInfo(
 	txIndexer txindex.TxIndexer,
 	genDoc *types.GenesisDoc,
 	state sm.State,
+	host host.Host,
 ) (p2p.NodeInfo, error) {
 	txIndexerStatus := "on"
 	if _, ok := txIndexer.(*null.TxIndex); ok {
@@ -1243,13 +1244,16 @@ func makeNodeInfo(
 		nodeInfo.Channels = append(nodeInfo.Channels, pex.PexChannel)
 	}
 
-	lAddr := config.P2P.ExternalAddress
+	//lAddr := config.P2P.ExternalAddress
+	//
+	//if lAddr == "" {
+	//	lAddr = config.P2P.ListenAddress
+	//}
+	//
+	//nodeInfo.ListenAddr = lAddr
 
-	if lAddr == "" {
-		lAddr = config.P2P.ListenAddress
-	}
-
-	nodeInfo.ListenAddr = lAddr
+	// don't use config
+	nodeInfo.ListenAddr = p2p.Multiaddr2DialString(host.Addrs()[0])
 
 	err := nodeInfo.Validate()
 	return nodeInfo, err
