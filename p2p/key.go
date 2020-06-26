@@ -103,7 +103,7 @@ func genNodeKey(filePath string) (*NodeKey, error) {
 	privKey, _, _ := libp2p_crypto.GenerateEd25519Key(crypto.CReader())
 	//privKey := ed25519.GenPrivKey()
 	nodeKey := &NodeKey{
-		PrivKey: lpPrivKey{K: privKey},
+		PrivKey: LpPrivKey{K: privKey},
 	}
 
 	jsonBytes, err := privKey.Bytes()
@@ -117,27 +117,33 @@ func genNodeKey(filePath string) (*NodeKey, error) {
 	return nodeKey, nil
 }
 
-type lpPrivKey struct {
+func GetNodeKeyFromLpPrivKey(pk libp2p_crypto.PrivKey) *NodeKey{
+	return &NodeKey{
+		PrivKey: LpPrivKey{K: pk},
+	}
+}
+
+type LpPrivKey struct {
 	K libp2p_crypto.PrivKey
 }
 
-func (l lpPrivKey) Bytes() []byte {
+func (l LpPrivKey) Bytes() []byte {
 	bs, _ := l.K.Bytes()
 	return bs
 }
 
-func (l lpPrivKey) Sign(msg []byte) ([]byte, error) {
+func (l LpPrivKey) Sign(msg []byte) ([]byte, error) {
 	return l.K.Sign(msg)
 }
 
-func (l lpPrivKey) PubKey() crypto.PubKey {
+func (l LpPrivKey) PubKey() crypto.PubKey {
 	return lpPubKey{
 		l.K.GetPublic(),
 	}
 }
 
-func (l lpPrivKey) Equals(key crypto.PrivKey) bool {
-	other, ok := key.(lpPrivKey)
+func (l LpPrivKey) Equals(key crypto.PrivKey) bool {
+	other, ok := key.(LpPrivKey)
 	if !ok {
 		return false
 	}

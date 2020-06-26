@@ -3,7 +3,6 @@ package p2p
 import (
 	"fmt"
 	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/protocol"
 	"math"
 	"sync"
 	"time"
@@ -17,16 +16,6 @@ import (
 	"github.com/bdware/tendermint/p2p/conn"
 	"github.com/libp2p/go-libp2p-core/host"
 )
-
-const (
-	ChannelPrefix = "tdm-"
-)
-
-// like "tdm-1" "tdm-2" ...
-func protocolForChannel(chID byte) protocol.ID {
-	proto := fmt.Sprintf("%s%d", ChannelPrefix, chID)
-	return protocol.ID(proto)
-}
 
 //-----------------------------------------------------------------------------
 

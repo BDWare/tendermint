@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/libp2p/go-libp2p-core/host"
 	"net"
 	"net/http"
 	_ "net/http/pprof" // nolint: gosec // securely exposed on separate, optional port
@@ -100,6 +101,7 @@ func DefaultNewNode(config *cfg.Config, logger log.Logger) (*Node, error) {
 		DefaultDBProvider,
 		DefaultMetricsProvider(config.Instrumentation),
 		logger,
+		nil,
 	)
 }
 
@@ -160,7 +162,8 @@ type Node struct {
 	privValidator types.PrivValidator // local node's validator key
 
 	// network
-	transport   *p2p.MultiplexTransport
+	//transport   *p2p.MultiplexTransport
+	transport *p2p.LpTransport
 	sw          *p2p.Switch  // p2p connections
 	addrBook    pex.AddrBook // known peers
 	nodeInfo    p2p.NodeInfo
@@ -460,6 +463,76 @@ func createTransport(
 	return transport, peerFilters
 }
 
+func createTransportWithLibp2p(
+	config *cfg.Config,
+	nodeInfo p2p.NodeInfo,
+	nodeKey *p2p.NodeKey,
+	proxyApp proxy.AppConns,
+	host host.Host,
+) (
+	*p2p.LpTransport,
+	[]p2p.PeerFilterFunc,
+) {
+	var (
+		//mConnConfig = p2p.MConnConfig(config.P2P)
+		transport   = p2p.NewLpTransport(nodeInfo, *nodeKey, host)
+		connFilters = []p2p.ConnFilterFunc{}
+		peerFilters = []p2p.PeerFilterFunc{}
+	)
+
+	if !config.P2P.AllowDuplicateIP {
+		connFilters = append(connFilters, p2p.ConnDuplicateIPFilter())
+	}
+
+	// Filter peers by addr or pubkey with an ABCI query.
+	// If the query return code is OK, add peer.
+	if config.FilterPeers {
+		connFilters = append(
+			connFilters,
+			// ABCI query for address filtering.
+			func(_ p2p.ConnSet, c net.Conn, _ []net.IP) error {
+				res, err := proxyApp.Query().QuerySync(abci.RequestQuery{
+					Path: fmt.Sprintf("/p2p/filter/addr/%s", c.RemoteAddr().String()),
+				})
+				if err != nil {
+					return err
+				}
+				if res.IsErr() {
+					return fmt.Errorf("error querying abci app: %v", res)
+				}
+
+				return nil
+			},
+		)
+
+		peerFilters = append(
+			peerFilters,
+			// ABCI query for ID filtering.
+			func(_ p2p.IPeerSet, p p2p.Peer) error {
+				res, err := proxyApp.Query().QuerySync(abci.RequestQuery{
+					Path: fmt.Sprintf("/p2p/filter/id/%s", p.ID()),
+				})
+				if err != nil {
+					return err
+				}
+				if res.IsErr() {
+					return fmt.Errorf("error querying abci app: %v", res)
+				}
+
+				return nil
+			},
+		)
+	}
+
+	//p2p.MultiplexTransportConnFilters(connFilters...)(transport)
+
+	// Limit the number of incoming connections.
+	//max := config.P2P.MaxNumInboundPeers + len(splitAndTrimEmpty(config.P2P.UnconditionalPeerIDs, ",", " "))
+	//p2p.MultiplexTransportMaxIncomingConnections(max)(transport)
+
+	return transport, peerFilters
+}
+
 func createSwitch(config *cfg.Config,
 	transport p2p.Transport,
 	p2pMetrics *p2p.Metrics,
@@ -477,6 +550,39 @@ func createSwitch(config *cfg.Config,
 		transport,
 		p2p.WithMetrics(p2pMetrics),
 		p2p.SwitchPeerFilters(peerFilters...),
+	)
+	sw.SetLogger(p2pLogger)
+	sw.AddReactor("MEMPOOL", mempoolReactor)
+	sw.AddReactor("BLOCKCHAIN", bcReactor)
+	sw.AddReactor("CONSENSUS", consensusReactor)
+	sw.AddReactor("EVIDENCE", evidenceReactor)
+
+	sw.SetNodeInfo(nodeInfo)
+	sw.SetNodeKey(nodeKey)
+
+	p2pLogger.Info("P2P Node ID", "ID", nodeKey.ID(), "file", config.NodeKeyFile())
+	return sw
+}
+
+func createSwitchWithLibp2p(config *cfg.Config,
+	transport p2p.Transport,
+	p2pMetrics *p2p.Metrics,
+	peerFilters []p2p.PeerFilterFunc,
+	mempoolReactor *mempl.Reactor,
+	bcReactor p2p.Reactor,
+	consensusReactor *consensus.Reactor,
+	evidenceReactor *evidence.Reactor,
+	nodeInfo p2p.NodeInfo,
+	nodeKey *p2p.NodeKey,
+	p2pLogger log.Logger,
+	host host.Host,) *p2p.Switch {
+
+	sw := p2p.NewSwitch(
+		config.P2P,
+		transport,
+		p2p.WithMetrics(p2pMetrics),
+		p2p.SwitchPeerFilters(peerFilters...),
+		p2p.WithLibp2pHost(host),
 	)
 	sw.SetLogger(p2pLogger)
 	sw.AddReactor("MEMPOOL", mempoolReactor)
@@ -539,6 +645,7 @@ func createPEXReactorAndAddToSwitch(addrBook pex.AddrBook, config *cfg.Config,
 	return pexReactor
 }
 
+
 // NewNode returns a new, ready to go, Tendermint Node.
 func NewNode(config *cfg.Config,
 	privValidator types.PrivValidator,
@@ -548,7 +655,11 @@ func NewNode(config *cfg.Config,
 	dbProvider DBProvider,
 	metricsProvider MetricsProvider,
 	logger log.Logger,
+	host host.Host,
 	options ...Option) (*Node, error) {
+	// The parameter nodeKey is useless, overwrite it with libp2p private key
+	libp2pID := host.ID()
+	nodeKey = p2p.GetNodeKeyFromLpPrivKey(host.Peerstore().PrivKey(libp2pID))
 
 	blockStore, stateDB, err := initDBs(config, dbProvider)
 	if err != nil {
@@ -653,15 +764,18 @@ func NewNode(config *cfg.Config,
 	}
 
 	// Setup Transport.
-	transport, peerFilters := createTransport(config, nodeInfo, nodeKey, proxyApp)
-
+	//transport, peerFilters := createTransport(config, nodeInfo, nodeKey, proxyApp)
+	transport, peerFilters := createTransportWithLibp2p(config, nodeInfo, nodeKey, proxyApp, host)
 	// Setup Switch.
 	p2pLogger := logger.With("module", "p2p")
-	sw := createSwitch(
+	//sw := createSwitch(
+	//	config, transport, p2pMetrics, peerFilters, mempoolReactor, bcReactor,
+	//	consensusReactor, evidenceReactor, nodeInfo, nodeKey, p2pLogger,
+	//)
+	sw := createSwitchWithLibp2p(
 		config, transport, p2pMetrics, peerFilters, mempoolReactor, bcReactor,
-		consensusReactor, evidenceReactor, nodeInfo, nodeKey, p2pLogger,
+		consensusReactor, evidenceReactor, nodeInfo, nodeKey, p2pLogger, host,
 	)
-
 	err = sw.AddPersistentPeers(splitAndTrimEmpty(config.P2P.PersistentPeers, ",", " "))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not add peers from persistent_peers field")
@@ -733,7 +847,6 @@ func NewNode(config *cfg.Config,
 
 	return node, nil
 }
-
 // OnStart starts the Node. It implements service.Service.
 func (n *Node) OnStart() error {
 	now := tmtime.Now()
@@ -761,17 +874,19 @@ func (n *Node) OnStart() error {
 		n.prometheusSrv = n.startPrometheusServer(n.config.Instrumentation.PrometheusListenAddr)
 	}
 
+	// we needn't listen here, because we have listened some address when starting libp2p host
+
 	// Start the transport.
-	addr, err := p2p.NewNetAddressString(p2p.IDAddressString(n.nodeKey.ID(), n.config.P2P.ListenAddress))
-	if err != nil {
-		return err
-	}
-	if err := n.transport.Listen(*addr); err != nil {
-		return err
-	}
+	//addr, err := p2p.NewNetAddressString(p2p.IDAddressString(n.nodeKey.ID(), n.config.P2P.ListenAddress))
+	//if err != nil {
+	//	return err
+	//}
+	//if err := n.transport.Listen(*addr); err != nil {
+	//	return err
+	//}
 
 	n.isListening = true
-
+	var err error
 	if n.config.Mempool.WalEnabled() {
 		err = n.mempool.InitWAL()
 		if err != nil {
