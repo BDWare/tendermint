@@ -45,11 +45,15 @@ func Multiaddr2DialString(ma multiaddr.Multiaddr) string{
 	return parts[2] + ":" + parts[4]
 }
 
-func ID2lpID(id ID) libp2pPeer.ID{
-	return libp2pPeer.ID(id)
+func ID2lpID(id ID) Libp2pID {
+	id1, err := libp2pPeer.Decode(string(id))
+	if err != nil {
+		panic(err)
+	}
+	return id1
 }
 
-func lpID2ID(id libp2pPeer.ID) ID {
-	//return ID(id)
+// In fact, libp2p peer.ID is not a string
+func lpID2ID(id Libp2pID) ID {
 	return ID(id.String())
 }

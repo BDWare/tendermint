@@ -116,7 +116,8 @@ func NewLpTransport(nodeInfo NodeInfo, nodeKey NodeKey, host host.Host, ) *LpTra
 		prID := s.Conn().LocalPeer()
 		nodeInfo, err := mt.shakehand(s)
 		if err != nil {
-			mt.host.Network().ClosePeer(prID)
+			//mt.host.Network().ClosePeer(prID)
+			return
 		}
 		ma := s.Conn().RemoteMultiaddr()
 		select {
@@ -158,12 +159,14 @@ func (mt *LpTransport) handleConnRoutine(e event.EvtPeerConnectednessChanged) {
 			// the peer that starts the connection also inits the handshake
 			s, err := mt.host.NewStream(context.TODO(), prID, ShakehandProtocol)
 			if err != nil {
-				mt.host.Network().ClosePeer(prID)
+				//mt.host.Network().ClosePeer(prID)
+				return
 			}
 
 			nodeInfo, err := mt.shakehand(s)
 			if err != nil {
-				mt.host.Network().ClosePeer(prID)
+				//mt.host.Network().ClosePeer(prID)
+				return
 			}
 			ma := c.RemoteMultiaddr()
 			if mt.wait4Peer.Has(string(id)) {
@@ -230,24 +233,24 @@ func (mt *LpTransport) Close() error {
 
 // Listen implements transportLifecycle.
 func (mt *LpTransport) Listen(addr NetAddress) (err error) {
-	ma := addr.Multiaddr()
-	if err = mt.host.Network().Listen(ma); err != nil {return err}
-	mt.netAddr = addr
-	mt.host.SetStreamHandler(ShakehandProtocol, func(s network.Stream) {
-		prID := s.Conn().LocalPeer()
-		nodeInfo, err := mt.shakehand(s)
-		if err != nil {
-			mt.host.Network().ClosePeer(prID)
-		}
-		ma := s.Conn().RemoteMultiaddr()
-		select {
-		case mt.acceptc <- accept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma)}:
-
-		case <-mt.closec:
-
-		}
-	})
-	return
+	//ma := addr.Multiaddr()
+	//if err = mt.host.Network().Listen(ma); err != nil {return err}
+	//mt.netAddr = addr
+	//mt.host.SetStreamHandler(ShakehandProtocol, func(s network.Stream) {
+	//	prID := s.Conn().LocalPeer()
+	//	nodeInfo, err := mt.shakehand(s)
+	//	if err != nil {
+	//		mt.host.Network().ClosePeer(prID)
+	//	}
+	//	ma := s.Conn().RemoteMultiaddr()
+	//	select {
+	//	case mt.acceptc <- accept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma)}:
+	//
+	//	case <-mt.closec:
+	//
+	//	}
+	//})
+	return fmt.Errorf("should not be called")
 }
 
 // shakehand exchanges and checks NodeInfo

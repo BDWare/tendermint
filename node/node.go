@@ -1253,6 +1253,7 @@ func makeNodeInfo(
 	//nodeInfo.ListenAddr = lAddr
 
 	// don't use config
+	// 0.0.0.0 ? The first multiAddr may be invalid, such as 127.0.0.1
 	nodeInfo.ListenAddr = p2p.Multiaddr2DialString(host.Addrs()[0])
 
 	err := nodeInfo.Validate()
