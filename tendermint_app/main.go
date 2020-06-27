@@ -109,6 +109,9 @@ func newTendermint(app abci.Application, configFile string) (*nm.Node, error) {
 		return nil, fmt.Errorf("failed to create new libp2p host: %w", err)
 	}
 
+	fmt.Println("host.ID:", host.ID())
+	fmt.Println("host.Addrs:", host.Addrs())
+
 	// create node
 	node, err := nm.NewNode(
 		config,
@@ -153,7 +156,7 @@ func newP2PHost(ctx context.Context, cfg *cfg.Config) (host.Host, error) {
 
 	// TODO: modify this after refactor config address type
 	listenAddrs := libp2p.ListenAddrStrings(
-		"/ip4/0.0.0.0/tcp/0",
+		"/ip4/0.0.0.0/tcp/26656",
 		//"/ip4/0.0.0.0/tcp/0/ws",
 	)
 
