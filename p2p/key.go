@@ -106,11 +106,12 @@ func genNodeKey(filePath string) (*NodeKey, error) {
 		PrivKey: LpPrivKey{K: privKey},
 	}
 
-	jsonBytes, err := privKey.Bytes()
+	// TODO: change to human readable?
+	keyBytes, err := privKey.Bytes()
 	if err != nil {
 		return nil, err
 	}
-	err = ioutil.WriteFile(filePath, jsonBytes, 0600)
+	err = ioutil.WriteFile(filePath, keyBytes, 0600)
 	if err != nil {
 		return nil, err
 	}

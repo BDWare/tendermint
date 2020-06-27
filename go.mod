@@ -16,7 +16,14 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/gtank/merlin v0.1.1
 	github.com/libp2p/go-buffer-pool v0.0.2
+	github.com/libp2p/go-libp2p v0.10.0
 	github.com/libp2p/go-libp2p-core v0.6.0
+	github.com/libp2p/go-libp2p-kad-dht v0.8.2
+	github.com/libp2p/go-libp2p-mplex v0.2.3
+	github.com/libp2p/go-libp2p-secio v0.2.2
+	github.com/libp2p/go-libp2p-tls v0.1.3
+	github.com/libp2p/go-libp2p-yamux v0.2.8
+	github.com/libp2p/go-tcp-transport v0.2.0
 	github.com/magiconair/properties v1.8.1
 	github.com/minio/highwayhash v1.0.0
 	github.com/multiformats/go-multiaddr v0.2.2
@@ -27,10 +34,10 @@ require (
 	github.com/snikch/goodman v0.0.0-20171125024755-10e37e294daa
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/viper v1.6.3
-	github.com/stretchr/testify v1.5.1
+	github.com/stretchr/testify v1.6.1
 	github.com/tendermint/go-amino v0.14.1
 	github.com/tendermint/tm-db v0.5.1
-	golang.org/x/crypto v0.0.0-20200406173513-056763e48d71
+	golang.org/x/crypto v0.0.0-20200423211502-4bdfaf469ed5
 	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e
 	google.golang.org/grpc v1.28.1
 )
