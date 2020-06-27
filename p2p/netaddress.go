@@ -5,7 +5,6 @@
 package p2p
 
 import (
-	"encoding/hex"
 	"flag"
 	"fmt"
 	libp2pPeer "github.com/libp2p/go-libp2p-core/peer"
@@ -376,16 +375,27 @@ func removeProtocolIfDefined(addr string) string {
 
 }
 
+//func validateID(id ID) error {
+//	if len(id) == 0 {
+//		return errors.New("no ID")
+//	}
+//	idBytes, err := hex.DecodeString(string(id))
+//	if err != nil {
+//		return err
+//	}
+//	if len(idBytes) != IDByteLength {
+//		return fmt.Errorf("invalid hex length - got %d, expected %d", len(idBytes), IDByteLength)
+//	}
+//	return nil
+//}
+
 func validateID(id ID) error {
 	if len(id) == 0 {
 		return errors.New("no ID")
 	}
-	idBytes, err := hex.DecodeString(string(id))
-	if err != nil {
-		return err
-	}
-	if len(idBytes) != IDByteLength {
-		return fmt.Errorf("invalid hex length - got %d, expected %d", len(idBytes), IDByteLength)
+	// TODO: hard-encoded for now
+	if len(string(id)) != 59 && len(string(id)) != 46 && len(string(id)) != 52 {
+		return fmt.Errorf("invalid ID length - got %d, expected 59, 46 or 52", len(id))
 	}
 	return nil
 }

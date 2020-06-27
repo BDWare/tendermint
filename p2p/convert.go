@@ -50,5 +50,6 @@ func ID2lpID(id ID) libp2pPeer.ID{
 }
 
 func lpID2ID(id libp2pPeer.ID) ID {
-	return ID(id)
+	//return ID(id)
+	return ID(id.String())
 }
