@@ -69,16 +69,30 @@ func LoadOrGenNodeKey(filePath string) (*NodeKey, error) {
 	return genNodeKey(filePath)
 }
 
-// TODO: need modified
+//func LoadNodeKey(filePath string) (*NodeKey, error) {
+//	jsonBytes, err := ioutil.ReadFile(filePath)
+//	if err != nil {
+//		return nil, err
+//	}
+//	nodeKey := new(NodeKey)
+//	err = cdc.UnmarshalJSON(jsonBytes, nodeKey)
+//	if err != nil {
+//		return nil, fmt.Errorf("error reading NodeKey from %v: %v", filePath, err)
+//	}
+//	return nodeKey, nil
+//}
+
 func LoadNodeKey(filePath string) (*NodeKey, error) {
-	jsonBytes, err := ioutil.ReadFile(filePath)
+	keyBytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
-	nodeKey := new(NodeKey)
-	err = cdc.UnmarshalJSON(jsonBytes, nodeKey)
+	privKey, err := libp2p_crypto.UnmarshalPrivateKey(keyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("error reading NodeKey from %v: %v", filePath, err)
+	}
+	nodeKey := &NodeKey{
+		PrivKey: LpPrivKey{K: privKey},
 	}
 	return nodeKey, nil
 }
