@@ -69,6 +69,7 @@ func LoadOrGenNodeKey(filePath string) (*NodeKey, error) {
 	return genNodeKey(filePath)
 }
 
+// TODO: need modified
 func LoadNodeKey(filePath string) (*NodeKey, error) {
 	jsonBytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
