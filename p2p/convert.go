@@ -26,7 +26,7 @@ func NetAddr2Multiaddr(na NetAddress) multiaddr.Multiaddr {
 	return ma
 }
 
-func Multiaddr2NetAddr(id libp2pPeer.ID, ma multiaddr.Multiaddr)  *NetAddress{
+func Multiaddr2NetAddr(id libp2pPeer.ID, ma multiaddr.Multiaddr) *NetAddress{
 	s := ma.String() // for example "/ip4/127.0.0.1/udp/1234"
 	//s = s[5:]
 	parts := strings.Split(s, "/")
@@ -46,6 +46,7 @@ func Multiaddr2DialString(ma multiaddr.Multiaddr) string{
 }
 
 func ID2lpID(id ID) Libp2pID {
+	// now p2p.ID is human-readable base58 encoded string
 	id1, err := libp2pPeer.Decode(string(id))
 	if err != nil {
 		panic(err)

@@ -14,6 +14,7 @@ import (
 )
 
 // ID is a hex-encoded crypto.Address
+// NOTE: ID is changed into a base58 encoded libp2p ID string (ID.Pretty())
 type ID string
 
 // IDByteLength is the length of a crypto.Address. Currently only 20.
