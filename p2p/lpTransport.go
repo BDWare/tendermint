@@ -111,6 +111,12 @@ func NewLpTransport(nodeInfo NodeInfo, nodeKey NodeKey, host host.Host, ) *LpTra
 		host: host,
 		wait4Peer: cmap.NewCMap(),
 	}
+	// set our address (used in switch)
+	addr, err := nodeInfo.NetAddress()
+	if err != nil {
+		panic(err)
+	}
+	mt.netAddr = *addr
 	go mt.handleConn()
 	mt.host.SetStreamHandler(ShakehandProtocol, func(s network.Stream) {
 		prID := s.Conn().LocalPeer()
