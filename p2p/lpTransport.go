@@ -119,7 +119,7 @@ func NewLpTransport(nodeInfo NodeInfo, nodeKey NodeKey, host host.Host, ) *LpTra
 	mt.netAddr = *addr
 	go mt.handleConn()
 	mt.host.SetStreamHandler(ShakehandProtocol, func(s network.Stream) {
-		prID := s.Conn().LocalPeer()
+		prID := s.Conn().RemotePeer()
 		nodeInfo, err := mt.shakehand(s)
 		if err != nil {
 			//mt.host.Network().ClosePeer(prID)
