@@ -18,6 +18,7 @@ import (
 )
 
 var _ Peer = (*lpPeer)(nil)
+
 // lpPeer implements Peer.
 //
 // Before using a lpPeer, you will need to perform a handshake on connection.
@@ -28,7 +29,6 @@ type lpPeer struct {
 	persistent bool
 	socketAddr *NetAddress
 
-
 	// lpPeer's node info and the channel it knows about
 	// channels = nodeInfo.Channels
 	// cached to avoid copying nodeInfo in hasChannel
@@ -36,7 +36,8 @@ type lpPeer struct {
 	channels []byte
 
 	streams map[byte]network.Stream
-	host host.Host
+	// our local peer host to send msg to this lpPeer
+	host    host.Host
 
 	// User data
 	Data *cmap.CMap
@@ -54,12 +55,15 @@ func (p *lpPeer) RemoteIP() net.IP {
 func newLpPeer(
 	nodeInfo NodeInfo,
 	reactorsByCh map[byte]Reactor,
+	host host.Host,
 	chDescs []*tmconn.ChannelDescriptor,
 	onPeerError func(Peer, interface{}),
 ) *lpPeer {
 	p := &lpPeer{
 		nodeInfo:      nodeInfo,
 		channels:      nodeInfo.(DefaultNodeInfo).Channels, // TODO
+		streams:       make(map[byte]network.Stream),
+		host:          host,
 		Data:          cmap.NewCMap(),
 		metricsTicker: time.NewTicker(metricsTickerDuration),
 		metrics:       NopMetrics(),
@@ -117,7 +121,6 @@ func (p *lpPeer) getStream(chID byte) network.Stream {
 		return s
 	}
 }
-
 
 //---------------------------------------------------
 // Implements service.Service
@@ -217,7 +220,7 @@ func (p *lpPeer) TrySend(chID byte, msgBytes []byte) bool {
 	return p.Send(chID, msgBytes)
 }
 
-func readUvarint(r io.Reader) (uint64, error){
+func readUvarint(r io.Reader) (uint64, error) {
 	var x uint64
 	var s uint
 	for i := 0; ; i++ {
@@ -237,7 +240,7 @@ func readUvarint(r io.Reader) (uint64, error){
 		s += 7
 	}
 }
-func (p *lpPeer) recvRoutine(s network.Stream, chID byte)  {
+func (p *lpPeer) recvRoutine(s network.Stream, chID byte) {
 	for {
 		// binary.ReadUvarint
 		length, err := readUvarint(s)
@@ -300,7 +303,7 @@ func writeUvarint(w io.Writer, i uint64) error {
 	return nil
 }
 
-func (p *lpPeer) sendBytesTo(s network.Stream, msg []byte, chID byte) error{
+func (p *lpPeer) sendBytesTo(s network.Stream, msg []byte, chID byte) error {
 	ln := uint64(len(msg))
 	err := writeUvarint(s, ln)
 	if err == nil {
@@ -308,10 +311,10 @@ func (p *lpPeer) sendBytesTo(s network.Stream, msg []byte, chID byte) error{
 	}
 	return err
 }
+
 //---------------------------------------------------
 // methods only used for testing
 // TODO: can we remove these?
-
 
 // RemoteAddr returns lpPeer's remote network address.
 func (p *lpPeer) RemoteAddr() net.Addr {

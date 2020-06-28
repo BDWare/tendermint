@@ -14,9 +14,7 @@ import (
 
 const (
 	ShakehandProtocol = "tdm-shakehand"
-
 )
-
 
 // ConnFilterFunc to be implemented by filter hooks after a new connection has
 // been established. The set of exisiting connections is passed along together
@@ -92,7 +90,7 @@ type LpTransport struct {
 	nodeKey          NodeKey
 
 	wait4Peer *cmap.CMap
-	host host.Host
+	host      host.Host
 }
 
 // Test multiplexTransport for interface completeness.
@@ -100,7 +98,7 @@ var _ Transport = (*LpTransport)(nil)
 var _ transportLifecycle = (*LpTransport)(nil)
 
 // NewLpTransport returns a tcp connected multiplexed lpPeer.
-func NewLpTransport(nodeInfo NodeInfo, nodeKey NodeKey, host host.Host, ) *LpTransport {
+func NewLpTransport(nodeInfo NodeInfo, nodeKey NodeKey, host host.Host) *LpTransport {
 	mt := &LpTransport{
 		acceptc:          make(chan accept),
 		closec:           make(chan struct{}),
@@ -109,8 +107,8 @@ func NewLpTransport(nodeInfo NodeInfo, nodeKey NodeKey, host host.Host, ) *LpTra
 		handshakeTimeout: defaultHandshakeTimeout,
 		nodeInfo:         nodeInfo,
 		nodeKey:          nodeKey,
-		host: host,
-		wait4Peer: cmap.NewCMap(),
+		host:             host,
+		wait4Peer:        cmap.NewCMap(),
 	}
 	// set our address (used in switch)
 	addr, err := nodeInfo.NetAddress()
@@ -143,7 +141,7 @@ func (mt *LpTransport) NetAddress() NetAddress {
 	return mt.netAddr
 }
 
-type notif struct{
+type notif struct {
 	mt *LpTransport
 }
 
@@ -201,7 +199,7 @@ func (n2 *notif) ClosedStream(n network.Network, stream network.Stream) {
 	return
 }
 
-func (mt *LpTransport) handleConn()  {
+func (mt *LpTransport) handleConn() {
 	sub, err := mt.host.EventBus().Subscribe(new(event.EvtPeerConnectednessChanged))
 	if err != nil {
 
@@ -281,7 +279,7 @@ func (mt *LpTransport) Dial(
 	if err != nil {
 		return nil, err
 	}
-	a := <- ch // block until connected event is detected
+	a := <-ch // block until connected event is detected
 	mt.wait4Peer.Delete(string(addr.ID))
 
 	cfg.outbound = true
@@ -320,7 +318,7 @@ func (mt *LpTransport) Listen(addr NetAddress) (err error) {
 }
 
 // shakehand exchanges and checks NodeInfo
-func (mt *LpTransport) shakehand(s network.Stream) (NodeInfo, error){
+func (mt *LpTransport) shakehand(s network.Stream) (NodeInfo, error) {
 	var (
 		errc = make(chan error, 2)
 
@@ -357,10 +355,10 @@ func (mt *LpTransport) shakehand(s network.Stream) (NodeInfo, error){
 	// Ensure connection key matches self reported key.
 	if connID != peerNodeInfo.ID() {
 		return nil, fmt.Errorf(
-				"conn.ID (%v) NodeInfo.ID (%v) mismatch",
-				connID,
-				peerNodeInfo.ID(),
-			)
+			"conn.ID (%v) NodeInfo.ID (%v) mismatch",
+			connID,
+			peerNodeInfo.ID(),
+		)
 	}
 
 	// Reject self.
@@ -372,10 +370,8 @@ func (mt *LpTransport) shakehand(s network.Stream) (NodeInfo, error){
 		return nil, fmt.Errorf("not compatible")
 	}
 
-
 	return peerNodeInfo, nil
 }
-
 
 // Cleanup removes the given address from the connections set and
 // closes the connection.
@@ -404,6 +400,7 @@ func (mt *LpTransport) wrapLpPeer(
 	p := newLpPeer(
 		ni,
 		cfg.reactorsByCh,
+		mt.host,
 		cfg.chDescs,
 		cfg.onPeerError,
 		//PeerMetrics(cfg.metrics),
