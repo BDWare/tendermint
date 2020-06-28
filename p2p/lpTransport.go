@@ -8,6 +8,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	libp2pPeer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/multiformats/go-multiaddr"
 	"time"
 )
 
@@ -117,7 +118,8 @@ func NewLpTransport(nodeInfo NodeInfo, nodeKey NodeKey, host host.Host, ) *LpTra
 		panic(err)
 	}
 	mt.netAddr = *addr
-	go mt.handleConn()
+	//go mt.handleConn()
+	mt.host.Network().Notify(&notif{mt: mt})
 	mt.host.SetStreamHandler(ShakehandProtocol, func(s network.Stream) {
 		prID := s.Conn().LocalPeer()
 		nodeInfo, err := mt.shakehand(s)
@@ -139,6 +141,64 @@ func NewLpTransport(nodeInfo NodeInfo, nodeKey NodeKey, host host.Host, ) *LpTra
 // NetAddress implements Transport.
 func (mt *LpTransport) NetAddress() NetAddress {
 	return mt.netAddr
+}
+
+type notif struct{
+	mt *LpTransport
+}
+
+func (n2 *notif) Listen(n network.Network, m multiaddr.Multiaddr) {
+	return
+}
+
+func (n2 *notif) ListenClose(n network.Network, m multiaddr.Multiaddr) {
+	return
+}
+
+func (n2 *notif) Connected(n network.Network, c network.Conn) {
+	mt := n2.mt
+	prID := c.RemotePeer()
+	id := lpID2ID(prID)
+	if c.Stat().Direction == network.DirOutbound {
+		// the peer that starts the connection also inits the handshake
+		s, err := mt.host.NewStream(context.TODO(), prID, ShakehandProtocol)
+		if err != nil {
+			//mt.host.Network().ClosePeer(prID)
+			return
+		}
+
+		nodeInfo, err := mt.shakehand(s)
+		if err != nil {
+			//mt.host.Network().ClosePeer(prID)
+			return
+		}
+		ma := c.RemoteMultiaddr()
+		if mt.wait4Peer.Has(string(id)) {
+			ch := mt.wait4Peer.Get(string(id)).(chan accept)
+			ch <- accept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma)}
+		} else {
+			select {
+			case mt.acceptc <- accept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma)}:
+
+			case <-mt.closec:
+
+			}
+		}
+	}
+}
+
+func (n2 *notif) Disconnected(n network.Network, conn network.Conn) {
+	return
+
+}
+
+func (n2 *notif) OpenedStream(n network.Network, stream network.Stream) {
+	return
+
+}
+
+func (n2 *notif) ClosedStream(n network.Network, stream network.Stream) {
+	return
 }
 
 func (mt *LpTransport) handleConn()  {
