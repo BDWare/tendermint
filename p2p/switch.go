@@ -185,11 +185,13 @@ func (sw *Switch) AddReactor(name string, reactor Reactor) Reactor {
 		sw.chDescs = append(sw.chDescs, chDesc)
 		sw.reactorsByCh[chID] = reactor
 
+		// This is where host receive msg and distribute to reactors.
 		sw.host.SetStreamHandler(protocolForChannel(chID), func(s network.Stream) {
 			id := lpID2ID(s.Conn().RemotePeer())
 			p := sw.peers.Get(id)
 			if p == nil {
 				s.Reset()
+				return
 			}
 			lpp, _ := p.(*lpPeer)
 			lpp.streams[chID] = s

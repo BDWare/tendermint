@@ -113,7 +113,7 @@ func (p *lpPeer) getStream(chID byte) network.Stream {
 	} else {
 		s, err := p.host.NewStream(context.TODO(), ID2lpID(p.nodeInfo.ID()), protocolForChannel(chID))
 		if err != nil {
-			p.Logger.Info("fail to create a stream for channel %d", chID)
+			p.Logger.Info(fmt.Sprintf("fail to create a stream for channel 0X%X", chID))
 			return nil
 		}
 		p.streams[chID] = s

@@ -3,12 +3,9 @@ package p2p
 import (
 	"context"
 	"fmt"
-	"github.com/bdware/tendermint/libs/cmap"
-	"github.com/libp2p/go-libp2p-core/event"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	libp2pPeer "github.com/libp2p/go-libp2p-core/peer"
-	"github.com/multiformats/go-multiaddr"
 	"time"
 )
 
@@ -89,8 +86,8 @@ type LpTransport struct {
 	nodeInfo         NodeInfo
 	nodeKey          NodeKey
 
-	wait4Peer *cmap.CMap
-	host      host.Host
+	//wait4Peer *cmap.CMap
+	host host.Host
 }
 
 // Test multiplexTransport for interface completeness.
@@ -108,16 +105,17 @@ func NewLpTransport(nodeInfo NodeInfo, nodeKey NodeKey, host host.Host) *LpTrans
 		nodeInfo:         nodeInfo,
 		nodeKey:          nodeKey,
 		host:             host,
-		wait4Peer:        cmap.NewCMap(),
+		//wait4Peer:        cmap.NewCMap(),
 	}
+
 	// set our address (used in switch)
 	addr, err := nodeInfo.NetAddress()
 	if err != nil {
 		panic(err)
 	}
 	mt.netAddr = *addr
-	//go mt.handleConn()
-	mt.host.Network().Notify(&notif{mt: mt})
+
+	//mt.host.Network().Notify(&notif{mt: mt})
 	mt.host.SetStreamHandler(ShakehandProtocol, func(s network.Stream) {
 		prID := s.Conn().RemotePeer()
 		nodeInfo, err := mt.shakehand(s)
@@ -141,112 +139,114 @@ func (mt *LpTransport) NetAddress() NetAddress {
 	return mt.netAddr
 }
 
-type notif struct {
-	mt *LpTransport
-}
+// Connection change can only be sensed once a peer(inbound or outbound), so it's not suitable.
 
-func (n2 *notif) Listen(n network.Network, m multiaddr.Multiaddr) {
-	return
-}
+//type notif struct {
+//	mt *LpTransport
+//}
+//
+//func (n2 *notif) Listen(n network.Network, m multiaddr.Multiaddr) {
+//	return
+//}
+//
+//func (n2 *notif) ListenClose(n network.Network, m multiaddr.Multiaddr) {
+//	return
+//}
+//
+//func (n2 *notif) Connected(n network.Network, c network.Conn) {
+//	mt := n2.mt
+//	prID := c.RemotePeer()
+//	id := lpID2ID(prID)
+//	if c.Stat().Direction == network.DirOutbound {
+//		// the peer that starts the connection also inits the handshake
+//		s, err := mt.host.NewStream(context.TODO(), prID, ShakehandProtocol)
+//		if err != nil {
+//			//mt.host.Network().ClosePeer(prID)
+//			return
+//		}
+//
+//		nodeInfo, err := mt.shakehand(s)
+//		if err != nil {
+//			//mt.host.Network().ClosePeer(prID)
+//			return
+//		}
+//		ma := c.RemoteMultiaddr()
+//		if mt.wait4Peer.Has(string(id)) {
+//			ch := mt.wait4Peer.Get(string(id)).(chan accept)
+//			ch <- accept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma)}
+//		} else {
+//			select {
+//			case mt.acceptc <- accept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma)}:
+//
+//			case <-mt.closec:
+//
+//			}
+//		}
+//	}
+//}
+//
+//func (n2 *notif) Disconnected(n network.Network, conn network.Conn) {
+//	return
+//
+//}
+//
+//func (n2 *notif) OpenedStream(n network.Network, stream network.Stream) {
+//	return
+//
+//}
+//
+//func (n2 *notif) ClosedStream(n network.Network, stream network.Stream) {
+//	return
+//}
 
-func (n2 *notif) ListenClose(n network.Network, m multiaddr.Multiaddr) {
-	return
-}
-
-func (n2 *notif) Connected(n network.Network, c network.Conn) {
-	mt := n2.mt
-	prID := c.RemotePeer()
-	id := lpID2ID(prID)
-	if c.Stat().Direction == network.DirOutbound {
-		// the peer that starts the connection also inits the handshake
-		s, err := mt.host.NewStream(context.TODO(), prID, ShakehandProtocol)
-		if err != nil {
-			//mt.host.Network().ClosePeer(prID)
-			return
-		}
-
-		nodeInfo, err := mt.shakehand(s)
-		if err != nil {
-			//mt.host.Network().ClosePeer(prID)
-			return
-		}
-		ma := c.RemoteMultiaddr()
-		if mt.wait4Peer.Has(string(id)) {
-			ch := mt.wait4Peer.Get(string(id)).(chan accept)
-			ch <- accept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma)}
-		} else {
-			select {
-			case mt.acceptc <- accept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma)}:
-
-			case <-mt.closec:
-
-			}
-		}
-	}
-}
-
-func (n2 *notif) Disconnected(n network.Network, conn network.Conn) {
-	return
-
-}
-
-func (n2 *notif) OpenedStream(n network.Network, stream network.Stream) {
-	return
-
-}
-
-func (n2 *notif) ClosedStream(n network.Network, stream network.Stream) {
-	return
-}
-
-func (mt *LpTransport) handleConn() {
-	sub, err := mt.host.EventBus().Subscribe(new(event.EvtPeerConnectednessChanged))
-	if err != nil {
-
-	}
-	for evt := range sub.Out() {
-		e, ok := evt.(event.EvtPeerConnectednessChanged)
-		if !ok {
-			continue
-		}
-		mt.handleConnRoutine(e)
-	}
-
-}
-
-func (mt *LpTransport) handleConnRoutine(e event.EvtPeerConnectednessChanged) {
-	prID := e.Peer
-	id := lpID2ID(prID)
-	if e.Connectedness == network.Connected {
-		c := mt.host.Network().ConnsToPeer(prID)[0]
-		if c.Stat().Direction == network.DirOutbound {
-			// the peer that starts the connection also inits the handshake
-			s, err := mt.host.NewStream(context.TODO(), prID, ShakehandProtocol)
-			if err != nil {
-				//mt.host.Network().ClosePeer(prID)
-				return
-			}
-
-			nodeInfo, err := mt.shakehand(s)
-			if err != nil {
-				//mt.host.Network().ClosePeer(prID)
-				return
-			}
-			ma := c.RemoteMultiaddr()
-			if mt.wait4Peer.Has(string(id)) {
-				ch := mt.wait4Peer.Get(string(id)).(chan accept)
-				ch <- accept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma)}
-			} else {
-				select {
-				case mt.acceptc <- accept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma)}:
-
-				case <-mt.closec:
-
-				}
-			}
-		}
-	}
-}
+//func (mt *LpTransport) handleConn() {
+//	sub, err := mt.host.EventBus().Subscribe(new(event.EvtPeerConnectednessChanged))
+//	if err != nil {
+//
+//	}
+//	for evt := range sub.Out() {
+//		e, ok := evt.(event.EvtPeerConnectednessChanged)
+//		if !ok {
+//			continue
+//		}
+//		mt.handleConnRoutine(e)
+//	}
+//
+//}
+//
+//func (mt *LpTransport) handleConnRoutine(e event.EvtPeerConnectednessChanged) {
+//	prID := e.Peer
+//	id := lpID2ID(prID)
+//	if e.Connectedness == network.Connected {
+//		c := mt.host.Network().ConnsToPeer(prID)[0]
+//		if c.Stat().Direction == network.DirOutbound {
+//			// the peer that starts the connection also inits the handshake
+//			s, err := mt.host.NewStream(context.TODO(), prID, ShakehandProtocol)
+//			if err != nil {
+//				//mt.host.Network().ClosePeer(prID)
+//				return
+//			}
+//
+//			nodeInfo, err := mt.shakehand(s)
+//			if err != nil {
+//				//mt.host.Network().ClosePeer(prID)
+//				return
+//			}
+//			ma := c.RemoteMultiaddr()
+//			if mt.wait4Peer.Has(string(id)) {
+//				ch := mt.wait4Peer.Get(string(id)).(chan accept)
+//				ch <- accept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma)}
+//			} else {
+//				select {
+//				case mt.acceptc <- accept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma)}:
+//
+//				case <-mt.closec:
+//
+//				}
+//			}
+//		}
+//	}
+//}
 
 // Accept implements Transport.
 func (mt *LpTransport) Accept(cfg peerConfig) (Peer, error) {
@@ -271,19 +271,27 @@ func (mt *LpTransport) Dial(
 	addr NetAddress,
 	cfg peerConfig,
 ) (Peer, error) {
-	ch := make(chan accept)
-	mt.wait4Peer.Set(string(addr.ID), ch)
 	ctx, _ := context.WithTimeout(context.Background(), mt.dialTimeout)
 	ai := addr.LpAddrInfo()
+
+	// TODO: Is Connect necessary?
 	err := mt.host.Connect(ctx, ai)
 	if err != nil {
 		return nil, err
 	}
-	a := <-ch // block until connected event is detected
-	mt.wait4Peer.Delete(string(addr.ID))
+	// the peer that starts the connection also inits the handshake
+	s, err := mt.host.NewStream(ctx, ai.ID, ShakehandProtocol)
+	if err != nil {
+		return nil, err
+	}
+
+	nodeInfo, err := mt.shakehand(s)
+	if err != nil {
+		return nil, err
+	}
 
 	cfg.outbound = true
-	p := mt.wrapLpPeer(a.nodeInfo, cfg, &addr)
+	p := mt.wrapLpPeer(nodeInfo, cfg, &addr)
 
 	return p, nil
 }
