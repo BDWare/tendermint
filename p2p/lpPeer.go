@@ -191,6 +191,7 @@ func (p *lpPeer) Status() tmconn.ConnectionStatus {
 }
 
 // Send msg bytes to the channel identified by chID byte.
+// NOTE: now Send and TrySend of lpPeer are identical because it doesn't have a msg queue.
 func (p *lpPeer) Send(chID byte, msgBytes []byte) bool {
 	if !p.IsRunning() {
 		// see LpSwitch#Broadcast, where we fetch the list of peers and loop over
