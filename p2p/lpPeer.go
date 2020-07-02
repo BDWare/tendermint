@@ -1,7 +1,6 @@
 package p2p
 
 import (
-	"context"
 	"encoding/binary"
 	"fmt"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -35,7 +34,7 @@ type lpPeer struct {
 	nodeInfo NodeInfo
 	channels []byte
 
-	streams map[byte]network.Stream
+	stream network.Stream
 	// our local peer host to send msg to this lpPeer
 	host    host.Host
 
@@ -62,7 +61,6 @@ func newLpPeer(
 	p := &lpPeer{
 		nodeInfo:      nodeInfo,
 		channels:      nodeInfo.(DefaultNodeInfo).Channels, // TODO
-		streams:       make(map[byte]network.Stream),
 		host:          host,
 		Data:          cmap.NewCMap(),
 		metricsTicker: time.NewTicker(metricsTickerDuration),
@@ -106,21 +104,6 @@ func (p *lpPeer) String() string {
 	return fmt.Sprintf("Peer{%v %v in}", p.RemoteAddr(), p.ID())
 }
 
-func (p *lpPeer) getStream(chID byte) network.Stream {
-	s, ok := p.streams[chID]
-	if ok {
-		return s
-	} else {
-		s, err := p.host.NewStream(context.TODO(), ID2lpID(p.nodeInfo.ID()), protocolForChannel(chID))
-		if err != nil {
-			p.Logger.Info(fmt.Sprintf("fail to create a stream for channel 0X%X", chID))
-			return nil
-		}
-		p.streams[chID] = s
-		go p.recvRoutine(s, chID)
-		return s
-	}
-}
 
 //---------------------------------------------------
 // Implements service.Service
@@ -200,11 +183,7 @@ func (p *lpPeer) Send(chID byte, msgBytes []byte) bool {
 	} else if !p.hasChannel(chID) {
 		return false
 	}
-	//res := p.mconn.Send(chID, msgBytes)
-	s := p.getStream(chID)
-	if s == nil {
-		return false
-	}
+	s := p.stream
 	err := p.sendBytesTo(s, msgBytes, chID)
 	if err == nil {
 		labels := []string{
@@ -241,7 +220,8 @@ func readUvarint(r io.Reader) (uint64, error) {
 		s += 7
 	}
 }
-func (p *lpPeer) recvRoutine(s network.Stream, chID byte) {
+func (p *lpPeer) recvRoutine() {
+	s := p.stream
 	for {
 		// binary.ReadUvarint
 		length, err := readUvarint(s)
@@ -254,7 +234,8 @@ func (p *lpPeer) recvRoutine(s network.Stream, chID byte) {
 		if err != nil {
 			break
 		}
-		p.onReceive(chID, buf)
+		chID := buf[0]
+		p.onReceive(chID, buf[1:])
 	}
 }
 
@@ -308,6 +289,7 @@ func (p *lpPeer) sendBytesTo(s network.Stream, msg []byte, chID byte) error {
 	ln := uint64(len(msg))
 	err := writeUvarint(s, ln)
 	if err == nil {
+		s.Write([]byte{chID})
 		_, err = s.Write(msg)
 	}
 	return err
@@ -329,7 +311,7 @@ func (p *lpPeer) CanSend(chID byte) bool {
 	if !p.IsRunning() {
 		return false
 	}
-	return p.getStream(chID) != nil
+	return true
 }
 
 //---------------------------------------------------

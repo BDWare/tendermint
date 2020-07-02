@@ -2,7 +2,6 @@ package p2p
 
 import (
 	"fmt"
-	"github.com/libp2p/go-libp2p-core/network"
 	"math"
 	"sync"
 	"time"
@@ -123,16 +122,6 @@ func (sw *LpSwitch) AddReactor(name string, reactor Reactor) Reactor {
 		sw.chDescs = append(sw.chDescs, chDesc)
 		sw.reactorsByCh[chID] = reactor
 
-		sw.host.SetStreamHandler(protocolForChannel(chID), func(s network.Stream) {
-			id := lpID2ID(s.Conn().RemotePeer())
-			p := sw.peers.Get(id)
-			if p == nil {
-				s.Reset()
-			}
-			lpp, _ := p.(*lpPeer)
-			lpp.streams[chID] = s
-			go lpp.recvRoutine(s, chID)
-		})
 	}
 	sw.reactors[name] = reactor
 	//reactor.SetSwitch(sw)

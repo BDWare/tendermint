@@ -3,7 +3,6 @@ package p2p
 import (
 	"context"
 	"fmt"
-	"github.com/bdware/tendermint/libs/cmap"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	libp2pPeer "github.com/libp2p/go-libp2p-core/peer"
@@ -68,6 +67,13 @@ const (
 //func MultiplexTransportMaxIncomingConnections(n int) MultiplexTransportOption {
 //	return func(mt *LpTransport) { mt.maxIncomingConnections = n }
 //}
+type lpAccept struct {
+	netAddr  *NetAddress
+	s        network.Stream
+	nodeInfo NodeInfo
+	err      error
+	outbound bool
+}
 
 // LpTransport accepts and dials tcp connections and upgrades them to
 // multiplexed peers.
@@ -75,7 +81,7 @@ type LpTransport struct {
 	netAddr                NetAddress
 	maxIncomingConnections int // see MaxIncomingConnections
 
-	acceptc chan accept
+	acceptc chan lpAccept
 	closec  chan struct{}
 
 	// Lookup table for duplicate ip and id checks.
@@ -88,8 +94,8 @@ type LpTransport struct {
 	nodeInfo         NodeInfo
 	nodeKey          NodeKey
 
-	wait4Peer *cmap.CMap
-	host      host.Host
+	//wait4Peer *cmap.CMap
+	host host.Host
 }
 
 // Test multiplexTransport for interface completeness.
@@ -99,7 +105,7 @@ var _ transportLifecycle = (*LpTransport)(nil)
 // NewLpTransport returns a tcp connected multiplexed lpPeer.
 func NewLpTransport(nodeInfo NodeInfo, nodeKey NodeKey, host host.Host) *LpTransport {
 	mt := &LpTransport{
-		acceptc:          make(chan accept),
+		acceptc:          make(chan lpAccept),
 		closec:           make(chan struct{}),
 		dialTimeout:      defaultDialTimeout,
 		filterTimeout:    defaultFilterTimeout,
@@ -107,7 +113,7 @@ func NewLpTransport(nodeInfo NodeInfo, nodeKey NodeKey, host host.Host) *LpTrans
 		nodeInfo:         nodeInfo,
 		nodeKey:          nodeKey,
 		host:             host,
-		wait4Peer:        cmap.NewCMap(),
+		//wait4Peer:        cmap.NewCMap(),
 	}
 
 	// set our address (used in switch)
@@ -127,7 +133,7 @@ func NewLpTransport(nodeInfo NodeInfo, nodeKey NodeKey, host host.Host) *LpTrans
 		}
 		ma := s.Conn().RemoteMultiaddr()
 		select {
-		case mt.acceptc <- accept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma)}:
+		case mt.acceptc <- lpAccept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma), s: s, outbound: false}:
 
 		case <-mt.closec:
 
@@ -158,7 +164,6 @@ func (n2 *notif) Connected(n network.Network, c network.Conn) {
 	go func() {
 		mt := n2.mt
 		prID := c.RemotePeer()
-		id := lpID2ID(prID)
 		if c.Stat().Direction == network.DirOutbound {
 			// the peer that starts the connection also inits the handshake
 			s, err := mt.host.NewStream(context.TODO(), prID, ShakehandProtocol)
@@ -173,17 +178,12 @@ func (n2 *notif) Connected(n network.Network, c network.Conn) {
 				return
 			}
 			ma := c.RemoteMultiaddr()
-			if mt.wait4Peer.Has(string(id)) {
-				ch := mt.wait4Peer.Get(string(id)).(chan accept)
-				ch <- accept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma)}
-			} else {
-				// FIXME: dht outbound conn will be marked as inbound.
-				select {
-				case mt.acceptc <- accept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma)}:
 
-				case <-mt.closec:
+			select {
+			case mt.acceptc <- lpAccept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma), s: s, outbound: true}:
 
-				}
+			case <-mt.closec:
+
 			}
 		}
 	}()
@@ -262,9 +262,9 @@ func (mt *LpTransport) Accept(cfg peerConfig) (Peer, error) {
 			return nil, a.err
 		}
 
-		cfg.outbound = false
+		cfg.outbound = a.outbound
 
-		return mt.wrapLpPeer(a.nodeInfo, cfg, a.netAddr), nil
+		return mt.wrapLpPeer(a.nodeInfo, cfg, a.netAddr, a.s), nil
 	case <-mt.closec:
 		return nil, ErrTransportClosed{}
 	}
@@ -275,21 +275,23 @@ func (mt *LpTransport) Dial(
 	addr NetAddress,
 	cfg peerConfig,
 ) (Peer, error) {
-	ch := make(chan accept)
-	mt.wait4Peer.Set(string(addr.ID), ch)
-	defer mt.wait4Peer.Delete(string(addr.ID))
-
-	ctx, _ := context.WithTimeout(context.Background(), mt.dialTimeout)
-	ai := addr.LpAddrInfo()
-	err := mt.host.Connect(ctx, ai)
-	if err != nil {
-		return nil, err
-	}
-
-	a := <-ch // block until connected event is detected
-	cfg.outbound = true
-	p := mt.wrapLpPeer(a.nodeInfo, cfg, &addr)
-	return p, nil
+	//ch := make(chan accept)
+	//mt.wait4Peer.Set(string(addr.ID), ch)
+	//defer mt.wait4Peer.Delete(string(addr.ID))
+	//
+	//ctx, _ := context.WithTimeout(context.Background(), mt.dialTimeout)
+	//ai := addr.LpAddrInfo()
+	//err := mt.host.Connect(ctx, ai)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//a := <-ch // block until
+	//ed event is detected
+	//cfg.outbound = true
+	//p := mt.wrapLpPeer(a.nodeInfo, cfg, &addr)
+	//return p, nil
+	return nil, fmt.Errorf("shouldn't be called")
 }
 
 // Close implements transportLifecycle.
@@ -387,6 +389,7 @@ func (mt *LpTransport) wrapLpPeer(
 	ni NodeInfo,
 	cfg peerConfig,
 	socketAddr *NetAddress,
+	s network.Stream,
 ) Peer {
 
 	persistent := false
@@ -413,6 +416,7 @@ func (mt *LpTransport) wrapLpPeer(
 	p.persistent = persistent
 	p.outbound = cfg.outbound
 	p.socketAddr = socketAddr
-
+	p.stream = s
+	go p.recvRoutine()
 	return p
 }

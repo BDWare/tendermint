@@ -3,8 +3,6 @@ package p2p
 import (
 	"fmt"
 	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/protocol"
 	"math"
 	"sync"
 	"time"
@@ -34,15 +32,15 @@ const (
 	reconnectBackOffBaseSeconds = 3
 )
 
-const (
-	ChannelPrefix = "tdm-"
-)
+//const (
+//	ChannelPrefix = "tdm-"
+//)
 
 // like "tdm-1" "tdm-2" ...
-func protocolForChannel(chID byte) protocol.ID {
-	proto := fmt.Sprintf("%s%d", ChannelPrefix, chID)
-	return protocol.ID(proto)
-}
+//func protocolForChannel(chID byte) protocol.ID {
+//	proto := fmt.Sprintf("%s%d", ChannelPrefix, chID)
+//	return protocol.ID(proto)
+//}
 
 
 // MConnConfig returns an MConnConfig with fields updated
@@ -186,17 +184,17 @@ func (sw *Switch) AddReactor(name string, reactor Reactor) Reactor {
 		sw.reactorsByCh[chID] = reactor
 
 		// This is where host receive msg and distribute to reactors.
-		sw.host.SetStreamHandler(protocolForChannel(chID), func(s network.Stream) {
-			id := lpID2ID(s.Conn().RemotePeer())
-			p := sw.peers.Get(id)
-			if p == nil {
-				s.Reset()
-				return
-			}
-			lpp, _ := p.(*lpPeer)
-			lpp.streams[chID] = s
-			go lpp.recvRoutine(s, chID)
-		})
+		//sw.host.SetStreamHandler(protocolForChannel(chID), func(s network.Stream) {
+		//	id := lpID2ID(s.Conn().RemotePeer())
+		//	p := sw.peers.Get(id)
+		//	if p == nil {
+		//		s.Reset()
+		//		return
+		//	}
+		//	lpp, _ := p.(*lpPeer)
+		//	lpp.streams[chID] = s
+		//	go lpp.recvRoutine(s, chID)
+		//})
 	}
 	sw.reactors[name] = reactor
 	reactor.SetSwitch(sw)
