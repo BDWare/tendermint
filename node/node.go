@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/bdware/tendermint/p2p/libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
 	"net"
 	"net/http"
@@ -163,7 +164,7 @@ type Node struct {
 
 	// network
 	//transport   *p2p.MultiplexTransport
-	transport *p2p.LpTransport
+	transport *libp2p.LpTransport
 	sw          *p2p.Switch  // p2p connections
 	addrBook    pex.AddrBook // known peers
 	nodeInfo    p2p.NodeInfo
@@ -470,12 +471,12 @@ func createTransportWithLibp2p(
 	proxyApp proxy.AppConns,
 	host host.Host,
 ) (
-	*p2p.LpTransport,
+	*libp2p.LpTransport,
 	[]p2p.PeerFilterFunc,
 ) {
 	var (
 		//mConnConfig = p2p.MConnConfig(config.P2P)
-		transport   = p2p.NewLpTransport(nodeInfo, *nodeKey, host)
+		transport   = libp2p.NewLpTransport(nodeInfo, *nodeKey, host)
 		connFilters = []p2p.ConnFilterFunc{}
 		peerFilters = []p2p.PeerFilterFunc{}
 	)

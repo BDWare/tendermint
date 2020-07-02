@@ -26,15 +26,15 @@ func NetAddr2Multiaddr(na NetAddress) multiaddr.Multiaddr {
 	return ma
 }
 
-func Multiaddr2NetAddr(id libp2pPeer.ID, ma multiaddr.Multiaddr) *NetAddress{
+func Multiaddr2NetAddr(id libp2pPeer.ID, ma multiaddr.Multiaddr) *NetAddress {
 	s := ma.String() // for example "/ip4/127.0.0.1/udp/1234"
 	//s = s[5:]
 	parts := strings.Split(s, "/")
 	port, _ := strconv.Atoi(parts[4])
 	return &NetAddress{
-		ID: lpID2ID(id),
+		ID:   LpID2ID(id),
 		Port: uint16(port),
-		IP: net.ParseIP(parts[2]),
+		IP:   net.ParseIP(parts[2]),
 	}
 }
 
@@ -55,6 +55,6 @@ func ID2lpID(id ID) Libp2pID {
 }
 
 // In fact, libp2p peer.ID is not a string
-func lpID2ID(id Libp2pID) ID {
+func LpID2ID(id Libp2pID) ID {
 	return ID(id.String())
 }

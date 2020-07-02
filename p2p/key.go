@@ -51,7 +51,7 @@ func (nodeKey *NodeKey) PubKey() crypto.PubKey {
 func PubKeyToID(pubKey crypto.PubKey) ID {
 	if pk, ok := pubKey.(lpPubKey); ok {
 		peerID, _ := libp2p_peer.IDFromPublicKey(pk.K)
-		return lpID2ID(peerID)
+		return LpID2ID(peerID)
 	} else {
 		return ID(hex.EncodeToString(pubKey.Address()))
 	}

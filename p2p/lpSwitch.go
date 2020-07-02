@@ -22,6 +22,7 @@ import (
 // on `Reactors`.  Each `Reactor` is responsible for handling incoming messages of one
 // or more `Channels`.  So while sending outgoing messages is typically performed on the lpPeer,
 // incoming messages are received on the reactor.
+// TODO: remove or continue to refactor it
 type LpSwitch struct {
 	service.BaseService
 
@@ -75,7 +76,7 @@ func NewLpSwitch(
 		reconnecting:         cmap.NewCMap(),
 		metrics:              NopMetrics(),
 		transport:            transport,
-		filterTimeout:        defaultFilterTimeout,
+		filterTimeout:        DefaultFilterTimeout,
 		persistentPeersAddrs: make([]*NetAddress, 0),
 		unconditionalPeerIDs: make(map[ID]struct{}),
 	}
@@ -102,7 +103,7 @@ func LpSwitchPeerFilters(filters ...PeerFilterFunc) LpSwitchOption {
 	return func(sw *LpSwitch) { sw.peerFilters = filters }
 }
 
-// WithMetrics sets the metrics.
+// WithMetrics sets the Metrics.
 func LpSwitchWithMetrics(metrics *Metrics) LpSwitchOption {
 	return func(sw *LpSwitch) { sw.metrics = metrics }
 }
@@ -544,12 +545,12 @@ func (sw *LpSwitch) IsPeerPersistent(na *NetAddress) bool {
 
 func (sw *LpSwitch) acceptRoutine() {
 	for {
-		p, err := sw.transport.Accept(peerConfig{
-			chDescs:      sw.chDescs,
-			onPeerError:  sw.StopPeerForError,
-			reactorsByCh: sw.reactorsByCh,
-			metrics:      sw.metrics,
-			isPersistent: sw.IsPeerPersistent,
+		p, err := sw.transport.Accept(PeerConfig{
+			ChDescs:      sw.chDescs,
+			OnPeerError:  sw.StopPeerForError,
+			ReactorsByCh: sw.reactorsByCh,
+			Metrics:      sw.metrics,
+			IsPersistent: sw.IsPeerPersistent,
 		})
 		if err != nil {
 			switch err := err.(type) {
@@ -647,12 +648,12 @@ func (sw *LpSwitch) addOutboundPeerWithConfig(
 		return fmt.Errorf("dial err (peerConfig.DialFail == true)")
 	}
 
-	p, err := sw.transport.Dial(*addr, peerConfig{
-		chDescs:      sw.chDescs,
-		onPeerError:  sw.StopPeerForError,
-		isPersistent: sw.IsPeerPersistent,
-		reactorsByCh: sw.reactorsByCh,
-		metrics:      sw.metrics,
+	p, err := sw.transport.Dial(*addr, PeerConfig{
+		ChDescs:      sw.chDescs,
+		OnPeerError:  sw.StopPeerForError,
+		IsPersistent: sw.IsPeerPersistent,
+		ReactorsByCh: sw.reactorsByCh,
+		Metrics:      sw.metrics,
 	})
 	if err != nil {
 		if e, ok := err.(ErrRejected); ok {

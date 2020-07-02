@@ -12,7 +12,7 @@ import (
 	tmconn "github.com/bdware/tendermint/p2p/conn"
 )
 
-const metricsTickerDuration = 10 * time.Second
+const MetricsTickerDuration = 10 * time.Second
 
 // Peer is an interface representing a peer connected on a reactor.
 type Peer interface {
@@ -133,7 +133,7 @@ func newPeer(
 		nodeInfo:      nodeInfo,
 		channels:      nodeInfo.(DefaultNodeInfo).Channels, // TODO
 		Data:          cmap.NewCMap(),
-		metricsTicker: time.NewTicker(metricsTickerDuration),
+		metricsTicker: time.NewTicker(MetricsTickerDuration),
 		metrics:       NopMetrics(),
 	}
 

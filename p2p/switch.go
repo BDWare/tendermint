@@ -131,7 +131,7 @@ func NewSwitch(
 		reconnecting:         cmap.NewCMap(),
 		metrics:              NopMetrics(),
 		transport:            transport,
-		filterTimeout:        defaultFilterTimeout,
+		filterTimeout:        DefaultFilterTimeout,
 		persistentPeersAddrs: make([]*NetAddress, 0),
 		unconditionalPeerIDs: make(map[ID]struct{}),
 	}
@@ -158,7 +158,7 @@ func SwitchPeerFilters(filters ...PeerFilterFunc) SwitchOption {
 	return func(sw *Switch) { sw.peerFilters = filters }
 }
 
-// WithMetrics sets the metrics.
+// WithMetrics sets the Metrics.
 func WithMetrics(metrics *Metrics) SwitchOption {
 	return func(sw *Switch) { sw.metrics = metrics }
 }
@@ -626,12 +626,12 @@ func (sw *Switch) IsPeerPersistent(na *NetAddress) bool {
 
 func (sw *Switch) acceptRoutine() {
 	for {
-		p, err := sw.transport.Accept(peerConfig{
-			chDescs:      sw.chDescs,
-			onPeerError:  sw.StopPeerForError,
-			reactorsByCh: sw.reactorsByCh,
-			metrics:      sw.metrics,
-			isPersistent: sw.IsPeerPersistent,
+		p, err := sw.transport.Accept(PeerConfig{
+			ChDescs:      sw.chDescs,
+			OnPeerError:  sw.StopPeerForError,
+			ReactorsByCh: sw.reactorsByCh,
+			Metrics:      sw.metrics,
+			IsPersistent: sw.IsPeerPersistent,
 		})
 		if err != nil {
 			switch err := err.(type) {
@@ -729,12 +729,12 @@ func (sw *Switch) addOutboundPeerWithConfig(
 		return fmt.Errorf("dial err (peerConfig.DialFail == true)")
 	}
 
-	p, err := sw.transport.Dial(*addr, peerConfig{
-		chDescs:      sw.chDescs,
-		onPeerError:  sw.StopPeerForError,
-		isPersistent: sw.IsPeerPersistent,
-		reactorsByCh: sw.reactorsByCh,
-		metrics:      sw.metrics,
+	p, err := sw.transport.Dial(*addr, PeerConfig{
+		ChDescs:      sw.chDescs,
+		OnPeerError:  sw.StopPeerForError,
+		IsPersistent: sw.IsPeerPersistent,
+		ReactorsByCh: sw.reactorsByCh,
+		Metrics:      sw.metrics,
 	})
 	if err != nil {
 		if e, ok := err.(ErrRejected); ok {

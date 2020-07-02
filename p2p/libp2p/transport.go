@@ -1,8 +1,9 @@
-package p2p
+package libp2p
 
 import (
 	"context"
 	"fmt"
+	"github.com/bdware/tendermint/p2p"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	libp2pPeer "github.com/libp2p/go-libp2p-core/peer"
@@ -67,10 +68,11 @@ const (
 //func MultiplexTransportMaxIncomingConnections(n int) MultiplexTransportOption {
 //	return func(mt *LpTransport) { mt.maxIncomingConnections = n }
 //}
-type lpAccept struct {
-	netAddr  *NetAddress
+
+type accept struct {
+	netAddr  *p2p.NetAddress
 	s        network.Stream
-	nodeInfo NodeInfo
+	nodeInfo p2p.NodeInfo
 	err      error
 	outbound bool
 }
@@ -78,38 +80,39 @@ type lpAccept struct {
 // LpTransport accepts and dials tcp connections and upgrades them to
 // multiplexed peers.
 type LpTransport struct {
-	netAddr                NetAddress
+	netAddr                p2p.NetAddress
 	maxIncomingConnections int // see MaxIncomingConnections
 
-	acceptc chan lpAccept
+	acceptc chan accept
 	closec  chan struct{}
 
 	// Lookup table for duplicate ip and id checks.
 	//conns       ConnSet
-	connFilters []ConnFilterFunc
+	connFilters []p2p.ConnFilterFunc
 
 	dialTimeout      time.Duration
 	filterTimeout    time.Duration
 	handshakeTimeout time.Duration
-	nodeInfo         NodeInfo
-	nodeKey          NodeKey
+	nodeInfo         p2p.NodeInfo
+	nodeKey          p2p.NodeKey
 
 	//wait4Peer *cmap.CMap
 	host host.Host
 }
 
 // Test multiplexTransport for interface completeness.
-var _ Transport = (*LpTransport)(nil)
-var _ transportLifecycle = (*LpTransport)(nil)
+var _ p2p.Transport = (*LpTransport)(nil)
+var _ p2p.TransportLifecycle = (*LpTransport)(nil)
 
-// NewLpTransport returns a tcp connected multiplexed lpPeer.
-func NewLpTransport(nodeInfo NodeInfo, nodeKey NodeKey, host host.Host) *LpTransport {
+
+// NewLpTransport returns a tcp connected multiplexed peer.
+func NewLpTransport(nodeInfo p2p.NodeInfo, nodeKey p2p.NodeKey, host host.Host) *LpTransport {
 	mt := &LpTransport{
-		acceptc:          make(chan lpAccept),
+		acceptc:          make(chan accept),
 		closec:           make(chan struct{}),
-		dialTimeout:      defaultDialTimeout,
-		filterTimeout:    defaultFilterTimeout,
-		handshakeTimeout: defaultHandshakeTimeout,
+		dialTimeout:      p2p.DefaultDialTimeout,
+		filterTimeout:    p2p.DefaultFilterTimeout,
+		handshakeTimeout: p2p.DefaultHandshakeTimeout,
 		nodeInfo:         nodeInfo,
 		nodeKey:          nodeKey,
 		host:             host,
@@ -133,7 +136,7 @@ func NewLpTransport(nodeInfo NodeInfo, nodeKey NodeKey, host host.Host) *LpTrans
 		}
 		ma := s.Conn().RemoteMultiaddr()
 		select {
-		case mt.acceptc <- lpAccept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma), s: s, outbound: false}:
+		case mt.acceptc <- accept{nodeInfo: nodeInfo, netAddr: p2p.Multiaddr2NetAddr(prID, ma), s: s, outbound: false}:
 
 		case <-mt.closec:
 
@@ -143,7 +146,7 @@ func NewLpTransport(nodeInfo NodeInfo, nodeKey NodeKey, host host.Host) *LpTrans
 }
 
 // NetAddress implements Transport.
-func (mt *LpTransport) NetAddress() NetAddress {
+func (mt *LpTransport) NetAddress() p2p.NetAddress {
 	return mt.netAddr
 }
 
@@ -180,7 +183,7 @@ func (n2 *notif) Connected(n network.Network, c network.Conn) {
 			ma := c.RemoteMultiaddr()
 
 			select {
-			case mt.acceptc <- lpAccept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma), s: s, outbound: true}:
+			case mt.acceptc <- accept{nodeInfo: nodeInfo, netAddr: p2p.Multiaddr2NetAddr(prID, ma), s: s, outbound: true}:
 
 			case <-mt.closec:
 
@@ -253,7 +256,7 @@ func (n2 *notif) ClosedStream(n network.Network, stream network.Stream) {
 //}
 
 // Accept implements Transport.
-func (mt *LpTransport) Accept(cfg peerConfig) (Peer, error) {
+func (mt *LpTransport) Accept(cfg p2p.PeerConfig) (p2p.Peer, error) {
 	select {
 	// This case should never have any side-effectful/blocking operations to
 	// ensure that quality peers are ready to be used.
@@ -262,19 +265,19 @@ func (mt *LpTransport) Accept(cfg peerConfig) (Peer, error) {
 			return nil, a.err
 		}
 
-		cfg.outbound = a.outbound
+		cfg.Outbound = a.outbound
 
 		return mt.wrapLpPeer(a.nodeInfo, cfg, a.netAddr, a.s), nil
 	case <-mt.closec:
-		return nil, ErrTransportClosed{}
+		return nil, p2p.ErrTransportClosed{}
 	}
 }
 
 // Dial implements Transport.
 func (mt *LpTransport) Dial(
-	addr NetAddress,
-	cfg peerConfig,
-) (Peer, error) {
+	addr p2p.NetAddress,
+	cfg p2p.PeerConfig,
+) (p2p.Peer, error) {
 	//ch := make(chan accept)
 	//mt.wait4Peer.Set(string(addr.ID), ch)
 	//defer mt.wait4Peer.Delete(string(addr.ID))
@@ -302,7 +305,7 @@ func (mt *LpTransport) Close() error {
 }
 
 // Listen implements transportLifecycle.
-func (mt *LpTransport) Listen(addr NetAddress) (err error) {
+func (mt *LpTransport) Listen(addr p2p.NetAddress) (err error) {
 	//ma := addr.Multiaddr()
 	//if err = mt.host.Network().Listen(ma); err != nil {return err}
 	//mt.netAddr = addr
@@ -324,24 +327,24 @@ func (mt *LpTransport) Listen(addr NetAddress) (err error) {
 }
 
 // shakehand exchanges and checks NodeInfo
-func (mt *LpTransport) shakehand(s network.Stream) (NodeInfo, error) {
+func (mt *LpTransport) shakehand(s network.Stream) (p2p.NodeInfo, error) {
 	var (
 		errc = make(chan error, 2)
 
-		peerNodeInfo DefaultNodeInfo
-		ourNodeInfo  = mt.nodeInfo.(DefaultNodeInfo)
+		peerNodeInfo p2p.DefaultNodeInfo
+		ourNodeInfo  = mt.nodeInfo.(p2p.DefaultNodeInfo)
 	)
 
 	go func(errc chan<- error, s network.Stream) {
-		_, err := cdc.MarshalBinaryLengthPrefixedWriter(s, ourNodeInfo)
+		_, err := p2p.Cdc.MarshalBinaryLengthPrefixedWriter(s, ourNodeInfo)
 		errc <- err
 	}(errc, s)
 
 	go func(errc chan<- error, s network.Stream) {
-		_, err := cdc.UnmarshalBinaryLengthPrefixedReader(
+		_, err := p2p.Cdc.UnmarshalBinaryLengthPrefixedReader(
 			s,
 			&peerNodeInfo,
-			int64(MaxNodeInfoSize()),
+			int64(p2p.MaxNodeInfoSize()),
 		)
 		errc <- err
 	}(errc, s)
@@ -357,7 +360,7 @@ func (mt *LpTransport) shakehand(s network.Stream) (NodeInfo, error) {
 		return nil, err
 	}
 	lpID, _ := libp2pPeer.IDFromPublicKey(s.Conn().RemotePublicKey())
-	connID := lpID2ID(lpID)
+	connID := p2p.LpID2ID(lpID)
 	// Ensure connection key matches self reported key.
 	if connID != peerNodeInfo.ID() {
 		return nil, fmt.Errorf(
@@ -381,40 +384,40 @@ func (mt *LpTransport) shakehand(s network.Stream) (NodeInfo, error) {
 
 // Cleanup removes the given address from the connections set and
 // closes the connection.
-func (mt *LpTransport) Cleanup(p Peer) {
+func (mt *LpTransport) Cleanup(p p2p.Peer) {
 	_ = p.CloseConn()
 }
 
 func (mt *LpTransport) wrapLpPeer(
-	ni NodeInfo,
-	cfg peerConfig,
-	socketAddr *NetAddress,
+	ni p2p.NodeInfo,
+	cfg p2p.PeerConfig,
+	socketAddr *p2p.NetAddress,
 	s network.Stream,
-) Peer {
+) p2p.Peer {
 
 	persistent := false
-	if cfg.isPersistent != nil {
-		if cfg.outbound {
-			persistent = cfg.isPersistent(socketAddr)
+	if cfg.IsPersistent != nil {
+		if cfg.Outbound {
+			persistent = cfg.IsPersistent(socketAddr)
 		} else {
 			selfReportedAddr, err := ni.NetAddress()
 			if err == nil {
-				persistent = cfg.isPersistent(selfReportedAddr)
+				persistent = cfg.IsPersistent(selfReportedAddr)
 			}
 		}
 	}
 
-	p := newLpPeer(
+	p := newPeer(
 		ni,
-		cfg.reactorsByCh,
+		cfg.ReactorsByCh,
 		mt.host,
-		cfg.chDescs,
-		cfg.onPeerError,
+		cfg.ChDescs,
+		cfg.OnPeerError,
 		//PeerMetrics(cfg.metrics),
 	)
 
 	p.persistent = persistent
-	p.outbound = cfg.outbound
+	p.outbound = cfg.Outbound
 	p.socketAddr = socketAddr
 	p.stream = s
 	go p.recvRoutine()
