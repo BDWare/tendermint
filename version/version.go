@@ -44,7 +44,8 @@ var (
 
 	// BlockProtocol versions all block data structures and processing.
 	// This includes validity of blocks and state updates.
-	BlockProtocol Protocol = 10
+	// This is not compatible with the original Tendermint block protocol.
+	BlockProtocol Protocol = 0
 )
 
 //------------------------------------------------------------------------
