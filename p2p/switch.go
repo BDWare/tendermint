@@ -2,7 +2,6 @@ package p2p
 
 import (
 	"fmt"
-	"github.com/libp2p/go-libp2p-core/host"
 	"math"
 	"sync"
 	"time"
@@ -103,7 +102,7 @@ type Switch struct {
 	rng *rand.Rand // seed for randomizing dial times and orders
 
 	metrics *Metrics
-	host host.Host
+	//host host.Host
 }
 
 // NetAddress returns the address the switch is listening on.
@@ -164,9 +163,9 @@ func WithMetrics(metrics *Metrics) SwitchOption {
 }
 
 // WithLibp2pHost sets the libp2p host
-func WithLibp2pHost(h host.Host) SwitchOption {
-	return func(sw *Switch) { sw.host = h }
-}
+//func WithLibp2pHost(h host.Host) SwitchOption {
+//	return func(sw *Switch) { sw.host = h }
+//}
 
 //---------------------------------------------------------------------
 // Switch setup
