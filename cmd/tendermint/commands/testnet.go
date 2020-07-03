@@ -244,7 +244,15 @@ func persistentPeersString(config *cfg.Config) (string, error) {
 	for i := 0; i < nValidators+nNonValidators; i++ {
 		nodeDir := filepath.Join(outputDir, fmt.Sprintf("%s%d", nodeDirPrefix, i))
 		config.SetRoot(nodeDir)
-		nodeKey, err := p2p.LoadNodeKey(config.NodeKeyFile())
+		var (
+			nodeKey *p2p.NodeKey
+			err		error
+		)
+		if !config.P2P.Libp2p {
+			nodeKey, err = p2p.LoadNodeKey(config.NodeKeyFile())
+		} else {
+			nodeKey, err = p2p.LoadLpNodeKey(config.NodeKeyFile())
+		}
 		if err != nil {
 			return "", err
 		}

@@ -5,6 +5,7 @@
 package p2p
 
 import (
+	"encoding/hex"
 	"flag"
 	"fmt"
 	libp2pPeer "github.com/libp2p/go-libp2p-core/peer"
@@ -390,12 +391,23 @@ func removeProtocolIfDefined(addr string) string {
 //}
 
 func validateID(id ID) error {
+	// TODO: libp2p key length is hardcoded for now
+	// TODO: other check of libp2p key
 	if len(id) == 0 {
 		return errors.New("no ID")
 	}
-	// TODO: hard-encoded for now
+	// Check if id is libp2p ID first
 	if len(string(id)) != 59 && len(string(id)) != 46 && len(string(id)) != 52 {
-		return fmt.Errorf("invalid ID length - got %d, expected 59, 46 or 52", len(id))
+		// Try to decode tdm hex ID
+		idBytes, err := hex.DecodeString(string(id))
+		if err != nil {
+			return fmt.Errorf("invalid libp2p ID length - got %d, expected 59, 46 or 52", len(idBytes))
+		}
+		if len(idBytes) != IDByteLength {
+			return fmt.Errorf(
+				"invalid tendermint hex ID length - got %d, expected %d", len(idBytes), IDByteLength)
+		}
+		return nil
 	}
 	return nil
 }

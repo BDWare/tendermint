@@ -225,6 +225,9 @@ tls_key_file = "{{ .RPC.TLSKeyFile }}"
 ##### peer to peer configuration options #####
 [p2p]
 
+# Use libp2p?
+p2p = "{{ .P2P.Libp2p }}"
+
 # Address to listen for incoming connections
 laddr = "{{ .P2P.ListenAddress }}"
 

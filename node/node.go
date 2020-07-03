@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/bdware/tendermint/p2p/libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"net"
 	"net/http"
 	_ "net/http/pprof" // nolint: gosec // securely exposed on separate, optional port
@@ -164,7 +165,7 @@ type Node struct {
 
 	// network
 	//transport   *p2p.MultiplexTransport
-	transport *libp2p.LpTransport
+	transport 	p2p.TransportLifecycle
 	sw          *p2p.Switch  // p2p connections
 	addrBook    pex.AddrBook // known peers
 	nodeInfo    p2p.NodeInfo
@@ -658,9 +659,14 @@ func NewNode(config *cfg.Config,
 	logger log.Logger,
 	host host.Host,
 	options ...Option) (*Node, error) {
-	// The parameter nodeKey is useless, overwrite it with libp2p private key
-	libp2pID := host.ID()
-	nodeKey = p2p.GetNodeKeyFromLpPrivKey(host.Peerstore().PrivKey(libp2pID))
+	var libp2pID peer.ID
+	if config.P2P.Libp2p {
+		config.P2P.PexReactor = false
+		config.P2P.PersistentPeers = ""
+		// The parameter nodeKey is useless, overwrite it with libp2p private key
+		libp2pID = host.ID()
+		nodeKey = p2p.GetNodeKeyFromLpPrivKey(host.Peerstore().PrivKey(libp2pID))
+	}
 
 	blockStore, stateDB, err := initDBs(config, dbProvider)
 	if err != nil {
@@ -765,18 +771,31 @@ func NewNode(config *cfg.Config,
 	}
 
 	// Setup Transport.
-	//transport, peerFilters := createTransport(config, nodeInfo, nodeKey, proxyApp)
-	transport, peerFilters := createTransportWithLibp2p(config, nodeInfo, nodeKey, proxyApp, host)
+	var (
+		transport p2p.Transport
+		peerFilters []p2p.PeerFilterFunc
+	)
+	if !config.P2P.Libp2p {
+		transport, peerFilters = createTransport(config, nodeInfo, nodeKey, proxyApp)
+	} else {
+		transport, peerFilters = createTransportWithLibp2p(config, nodeInfo, nodeKey, proxyApp, host)
+	}
+
 	// Setup Switch.
 	p2pLogger := logger.With("module", "p2p")
-	//sw := createSwitch(
-	//	config, transport, p2pMetrics, peerFilters, mempoolReactor, bcReactor,
-	//	consensusReactor, evidenceReactor, nodeInfo, nodeKey, p2pLogger,
-	//)
-	sw := createSwitchWithLibp2p(
-		config, transport, p2pMetrics, peerFilters, mempoolReactor, bcReactor,
-		consensusReactor, evidenceReactor, nodeInfo, nodeKey, p2pLogger, host,
-	)
+	var sw *p2p.Switch
+	if !config.P2P.Libp2p {
+		sw = createSwitch(
+			config, transport, p2pMetrics, peerFilters, mempoolReactor, bcReactor,
+			consensusReactor, evidenceReactor, nodeInfo, nodeKey, p2pLogger,
+		)
+	} else {
+		sw = createSwitchWithLibp2p(
+			config, transport, p2pMetrics, peerFilters, mempoolReactor, bcReactor,
+			consensusReactor, evidenceReactor, nodeInfo, nodeKey, p2pLogger, host,
+		)
+	}
+
 	err = sw.AddPersistentPeers(splitAndTrimEmpty(config.P2P.PersistentPeers, ",", " "))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not add peers from persistent_peers field")
@@ -820,7 +839,7 @@ func NewNode(config *cfg.Config,
 		genesisDoc:    genDoc,
 		privValidator: privValidator,
 
-		transport: transport,
+		transport: transport.(p2p.TransportLifecycle),
 		sw:        sw,
 		addrBook:  addrBook,
 		nodeInfo:  nodeInfo,
@@ -1245,17 +1264,19 @@ func makeNodeInfo(
 		nodeInfo.Channels = append(nodeInfo.Channels, pex.PexChannel)
 	}
 
-	//lAddr := config.P2P.ExternalAddress
-	//
-	//if lAddr == "" {
-	//	lAddr = config.P2P.ListenAddress
-	//}
-	//
-	//nodeInfo.ListenAddr = lAddr
+	lAddr := config.P2P.ExternalAddress
 
-	// don't use config
+	if lAddr == "" {
+		lAddr = config.P2P.ListenAddress
+	}
+
+	nodeInfo.ListenAddr = lAddr
+
+	// don't use config when use libp2p
 	// 0.0.0.0 ? The first multiAddr may be invalid, such as 127.0.0.1
-	nodeInfo.ListenAddr = p2p.Multiaddr2DialString(host.Addrs()[0])
+	if config.P2P.Libp2p {
+		nodeInfo.ListenAddr = p2p.Multiaddr2DialString(host.Addrs()[0])
+	}
 
 	err := nodeInfo.Validate()
 	return nodeInfo, err

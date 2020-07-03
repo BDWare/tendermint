@@ -474,6 +474,9 @@ func (cfg RPCConfig) IsTLSEnabled() bool {
 type P2PConfig struct { //nolint: maligned
 	RootDir string `mapstructure:"home"`
 
+	// Whether to use libp2p
+	Libp2p bool `mapstructure:"libp2p"`
+
 	// Address to listen for incoming connections
 	ListenAddress string `mapstructure:"laddr"`
 

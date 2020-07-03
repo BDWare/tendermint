@@ -4,19 +4,25 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/bdware/tendermint/crypto/ed25519"
+	libp2p_peer "github.com/libp2p/go-libp2p-core/peer"
 	"io/ioutil"
 
 	"github.com/bdware/tendermint/crypto"
-	"github.com/bdware/tendermint/crypto/tmhash"
 	tmos "github.com/bdware/tendermint/libs/os"
-	libp2p_crypto "github.com/libp2p/go-libp2p-core/crypto"
-	libp2p_peer "github.com/libp2p/go-libp2p-core/peer"
 )
 
-// ID is a hex-encoded crypto.Address
-// NOTE: ID is changed into a base58 encoded libp2p ID string (ID.Pretty())
+// For temdermint p2p: ID is a hex-encoded crypto.Address
+// For libp2p: ID is a base58 encoded libp2p ID string (ID.Pretty() of github.com/libp2p/go-libp2p-core/peer)
 type ID string
 
+//type ID interface {
+//	isID()
+//}
+//type id string
+//func (id id) isID() {}
+
+// IDByteLength is only used in tendermint p2p ID for now.
 // IDByteLength is the length of a crypto.Address. Currently only 20.
 // TODO: support other length addresses ?
 const IDByteLength = crypto.AddressSize
@@ -47,8 +53,10 @@ func (nodeKey *NodeKey) PubKey() crypto.PubKey {
 //	return ID(hex.EncodeToString(pubKey.Address()))
 //}
 
-// PubKeyToID returns libp2p peer.ID
+// PubKeyToID returns libp2p peer.ID or tendermint p2p peer ID
 func PubKeyToID(pubKey crypto.PubKey) ID {
+	// TODO: maybe change the way to get type of key
+	// so that we can put lpKey in package libp2p
 	if pk, ok := pubKey.(lpPubKey); ok {
 		peerID, _ := libp2p_peer.IDFromPublicKey(pk.K)
 		return LpID2ID(peerID)
@@ -70,128 +78,34 @@ func LoadOrGenNodeKey(filePath string) (*NodeKey, error) {
 	return genNodeKey(filePath)
 }
 
-//func LoadNodeKey(filePath string) (*NodeKey, error) {
-//	jsonBytes, err := ioutil.ReadFile(filePath)
-//	if err != nil {
-//		return nil, err
-//	}
-//	nodeKey := new(NodeKey)
-//	err = cdc.UnmarshalJSON(jsonBytes, nodeKey)
-//	if err != nil {
-//		return nil, fmt.Errorf("error reading NodeKey from %v: %v", filePath, err)
-//	}
-//	return nodeKey, nil
-//}
-
 func LoadNodeKey(filePath string) (*NodeKey, error) {
-	keyBytes, err := ioutil.ReadFile(filePath)
+	jsonBytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
-	privKey, err := libp2p_crypto.UnmarshalPrivateKey(keyBytes)
+	nodeKey := new(NodeKey)
+	err = Cdc.UnmarshalJSON(jsonBytes, nodeKey)
 	if err != nil {
 		return nil, fmt.Errorf("error reading NodeKey from %v: %v", filePath, err)
 	}
-	nodeKey := &NodeKey{
-		PrivKey: LpPrivKey{K: privKey},
-	}
 	return nodeKey, nil
 }
-
-//func genNodeKey(filePath string) (*NodeKey, error) {
-//	privKey := ed25519.GenPrivKey()
-//	nodeKey := &NodeKey{
-//		PrivKey: privKey,
-//	}
-//
-//	jsonBytes, err := cdc.MarshalJSON(nodeKey)
-//	if err != nil {
-//		return nil, err
-//	}
-//	err = ioutil.WriteFile(filePath, jsonBytes, 0600)
-//	if err != nil {
-//		return nil, err
-//	}
-//	return nodeKey, nil
-//}
 
 func genNodeKey(filePath string) (*NodeKey, error) {
-	privKey, _, _ := libp2p_crypto.GenerateEd25519Key(crypto.CReader())
-	//privKey := ed25519.GenPrivKey()
+	privKey := ed25519.GenPrivKey()
 	nodeKey := &NodeKey{
-		PrivKey: LpPrivKey{K: privKey},
+		PrivKey: privKey,
 	}
 
-	// TODO: change to human readable?
-	keyBytes, err := privKey.Bytes()
+	jsonBytes, err := Cdc.MarshalJSON(nodeKey)
 	if err != nil {
 		return nil, err
 	}
-	err = ioutil.WriteFile(filePath, keyBytes, 0600)
+	err = ioutil.WriteFile(filePath, jsonBytes, 0600)
 	if err != nil {
 		return nil, err
 	}
 	return nodeKey, nil
-}
-
-func GetNodeKeyFromLpPrivKey(pk libp2p_crypto.PrivKey) *NodeKey{
-	return &NodeKey{
-		PrivKey: LpPrivKey{K: pk},
-	}
-}
-
-type LpPrivKey struct {
-	K libp2p_crypto.PrivKey
-}
-
-func (l LpPrivKey) Bytes() []byte {
-	bs, _ := l.K.Bytes()
-	return bs
-}
-
-func (l LpPrivKey) Sign(msg []byte) ([]byte, error) {
-	return l.K.Sign(msg)
-}
-
-func (l LpPrivKey) PubKey() crypto.PubKey {
-	return lpPubKey{
-		l.K.GetPublic(),
-	}
-}
-
-func (l LpPrivKey) Equals(key crypto.PrivKey) bool {
-	other, ok := key.(LpPrivKey)
-	if !ok {
-		return false
-	}
-	return l.K.Equals(other.K)
-}
-
-type lpPubKey struct {
-	K libp2p_crypto.PubKey
-}
-
-func (l lpPubKey) Address() crypto.Address {
-	bs,_ := l.K.Raw()
-	return crypto.Address(tmhash.SumTruncated(bs))
-}
-
-func (l lpPubKey) Bytes() []byte {
-	bs, _ := l.K.Bytes()
-	return bs
-}
-
-func (l lpPubKey) VerifyBytes(msg []byte, sig []byte) bool {
-	ok, _ := l.K.Verify(msg, sig)
-	return ok
-}
-
-func (l lpPubKey) Equals(key crypto.PubKey) bool {
-	other, ok := key.(lpPubKey)
-	if !ok {
-		return false
-	}
-	return l.K.Equals(other.K)
 }
 
 //------------------------------------------------------------------------------

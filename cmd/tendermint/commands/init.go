@@ -46,8 +46,14 @@ func initFilesWithConfig(config *cfg.Config) error {
 	if tmos.FileExists(nodeKeyFile) {
 		logger.Info("Found node key", "path", nodeKeyFile)
 	} else {
-		if _, err := p2p.LoadOrGenNodeKey(nodeKeyFile); err != nil {
-			return err
+		if !config.P2P.Libp2p {
+			if _, err := p2p.LoadOrGenNodeKey(nodeKeyFile); err != nil {
+				return err
+			}
+		} else {
+			if _, err := p2p.LoadOrGenLpNodeKey(nodeKeyFile); err != nil {
+				return err
+			}
 		}
 		logger.Info("Generated node key", "path", nodeKeyFile)
 	}

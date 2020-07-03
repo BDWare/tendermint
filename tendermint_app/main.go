@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/bdware/tendermint/p2p"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -97,26 +98,31 @@ func newTendermint(app abci.Application, configFile string) (*nm.Node, error) {
 		config.PrivValidatorStateFile(),
 	)
 
-	//read node key
-	//nodeKey, err := p2p.LoadNodeKey(config.NodeKeyFile())
-	//if err != nil {
-	//	return nil, fmt.Errorf("failed to load node's key: %w", err)
-	//}
-
-	// create libp2p host
-	host, err := newP2PHost(context.Background(), config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create new libp2p host: %w", err)
+	var nodeKey *p2p.NodeKey
+	if !config.P2P.Libp2p {
+		//read node key
+		nodeKey, err = p2p.LoadNodeKey(config.NodeKeyFile())
+		if err != nil {
+			return nil, fmt.Errorf("failed to load node's key: %w", err)
+		}
 	}
 
-	fmt.Println("host.ID:", host.ID())
-	fmt.Println("host.Addrs:", host.Addrs())
+	var host host.Host
+	// create libp2p host
+	if config.P2P.Libp2p {
+		host, err = newP2PHost(context.Background(), config)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create new libp2p host: %w", err)
+		}
+		fmt.Println("host.ID:", host.ID())
+		fmt.Println("host.Addrs:", host.Addrs())
+	}
 
 	// create node
 	node, err := nm.NewNode(
 		config,
 		pv,
-		nil,
+		nodeKey,
 		proxy.NewLocalClientCreator(app),
 		nm.DefaultGenesisDocProviderFunc(config),
 		nm.DefaultDBProvider,
