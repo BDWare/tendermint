@@ -301,6 +301,10 @@ func (mt *LpTransport) Dial(
 func (mt *LpTransport) Close() error {
 	close(mt.closec)
 
+	if mt.host != nil {
+		mt.host.Close()
+	}
+
 	return nil
 }
 
