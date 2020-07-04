@@ -898,16 +898,17 @@ func (n *Node) OnStart() error {
 		n.prometheusSrv = n.startPrometheusServer(n.config.Instrumentation.PrometheusListenAddr)
 	}
 
-	// we needn't listen here, because we have listened some address when starting libp2p host
-
 	// Start the transport.
-	//addr, err := p2p.NewNetAddressString(p2p.IDAddressString(n.nodeKey.ID(), n.config.P2P.ListenAddress))
-	//if err != nil {
-	//	return err
-	//}
-	//if err := n.transport.Listen(*addr); err != nil {
-	//	return err
-	//}
+	// we needn't listen here if using libp2p, because we have listened some address when starting libp2p host
+	if !n.config.P2P.Libp2p {
+		addr, err := p2p.NewNetAddressString(p2p.IDAddressString(n.nodeKey.ID(), n.config.P2P.ListenAddress))
+		if err != nil {
+			return err
+		}
+		if err := n.transport.Listen(*addr); err != nil {
+			return err
+		}
+	}
 
 	n.isListening = true
 	var err error
