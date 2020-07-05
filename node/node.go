@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/bdware/tendermint/p2p/libp2p"
+	host2 "github.com/bdware/tendermint/tendermint_app/host"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"net"
@@ -90,9 +91,26 @@ type Provider func(*cfg.Config, log.Logger) (*Node, error)
 // PrivValidator, ClientCreator, GenesisDoc, and DBProvider.
 // It implements NodeProvider.
 func DefaultNewNode(config *cfg.Config, logger log.Logger) (*Node, error) {
-	nodeKey, err := p2p.LoadOrGenNodeKey(config.NodeKeyFile())
-	if err != nil {
-		return nil, fmt.Errorf("failed to load or gen node key %s: %w", config.NodeKeyFile(), err)
+	var (
+		nodeKey *p2p.NodeKey
+		err		error
+	)
+	if !config.P2P.Libp2p {
+		nodeKey, err = p2p.LoadOrGenNodeKey(config.NodeKeyFile())
+		if err != nil {
+			return nil, fmt.Errorf("failed to load or gen node key %s: %w", config.NodeKeyFile(), err)
+		}
+	}
+
+	var host host.Host
+	// create libp2p host
+	if config.P2P.Libp2p {
+		host, err = host2.NewP2PHost(context.Background(), config)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create new libp2p host: %w", err)
+		}
+		fmt.Println("host.ID:", host.ID())
+		fmt.Println("host.Addrs:", host.Addrs())
 	}
 
 	return NewNode(config,
@@ -103,7 +121,7 @@ func DefaultNewNode(config *cfg.Config, logger log.Logger) (*Node, error) {
 		DefaultDBProvider,
 		DefaultMetricsProvider(config.Instrumentation),
 		logger,
-		nil,
+		host,
 	)
 }
 
