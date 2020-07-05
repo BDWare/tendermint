@@ -1,7 +1,10 @@
 package p2p
 
 import (
+	"context"
 	"fmt"
+	"github.com/libp2p/go-libp2p-core/host"
+	swarm "github.com/libp2p/go-libp2p-swarm"
 	"math"
 	"sync"
 	"time"
@@ -102,7 +105,7 @@ type Switch struct {
 	rng *rand.Rand // seed for randomizing dial times and orders
 
 	metrics *Metrics
-	//host host.Host
+	host 	host.Host
 }
 
 // NetAddress returns the address the switch is listening on.
@@ -163,9 +166,9 @@ func WithMetrics(metrics *Metrics) SwitchOption {
 }
 
 // WithLibp2pHost sets the libp2p host
-//func WithLibp2pHost(h host.Host) SwitchOption {
-//	return func(sw *Switch) { sw.host = h }
-//}
+func WithLibp2pHost(h host.Host) SwitchOption {
+	return func(sw *Switch) { sw.host = h }
+}
 
 //---------------------------------------------------------------------
 // Switch setup
@@ -728,13 +731,22 @@ func (sw *Switch) addOutboundPeerWithConfig(
 		return fmt.Errorf("dial err (peerConfig.DialFail == true)")
 	}
 
-	p, err := sw.transport.Dial(*addr, PeerConfig{
-		ChDescs:      sw.chDescs,
-		OnPeerError:  sw.StopPeerForError,
-		IsPersistent: sw.IsPeerPersistent,
-		ReactorsByCh: sw.reactorsByCh,
-		Metrics:      sw.metrics,
-	})
+	var (
+		p   Peer
+		err error
+	)
+	if !sw.config.Libp2p {
+		p, err = sw.transport.Dial(*addr, PeerConfig{
+			ChDescs:      sw.chDescs,
+			OnPeerError:  sw.StopPeerForError,
+			IsPersistent: sw.IsPeerPersistent,
+			ReactorsByCh: sw.reactorsByCh,
+			Metrics:      sw.metrics,
+		})
+	} else {
+		ctx, _ := context.WithTimeout(context.Background(), sw.config.DialTimeout)
+		err = connect(sw.host, ctx, *addr)
+	}
 	if err != nil {
 		if e, ok := err.(ErrRejected); ok {
 			if e.IsSelf() {
@@ -756,12 +768,14 @@ func (sw *Switch) addOutboundPeerWithConfig(
 		return err
 	}
 
-	if err := sw.addPeer(p); err != nil {
-		sw.transport.Cleanup(p)
-		if p.IsRunning() {
-			_ = p.Stop()
+	if !sw.config.Libp2p {
+		if err := sw.addPeer(p); err != nil {
+			sw.transport.Cleanup(p)
+			if p.IsRunning() {
+				_ = p.Stop()
+			}
+			return err
 		}
-		return err
 	}
 
 	return nil
@@ -843,4 +857,26 @@ func (sw *Switch) addPeer(p Peer) error {
 	sw.Logger.Info("Added peer", "peer", p)
 
 	return nil
+}
+
+func (sw *Switch) Host() host.Host {
+	return sw.host
+}
+
+// connect is a helper function to connect to a libp2p peer
+func connect(host host.Host, ctx context.Context, addr NetAddress) error {
+	//fmt.Println(host.ID())
+	//fmt.Println(host.ID())
+	err := host.Connect(ctx, NetAddr2LpAddrInfo(addr))
+	//fmt.Println(err)
+	if err == swarm.ErrDialToSelf {
+		return ErrRejected{
+			id:     addr.ID,
+			addr:	addr,
+			err:    err,
+			isSelf: true,
+		}
+	}
+	// TODO: other error types?
+	return err
 }

@@ -21,6 +21,7 @@ require (
 	github.com/libp2p/go-libp2p-kad-dht v0.8.2
 	github.com/libp2p/go-libp2p-mplex v0.2.3
 	github.com/libp2p/go-libp2p-secio v0.2.2
+	github.com/libp2p/go-libp2p-swarm v0.2.7
 	github.com/libp2p/go-libp2p-tls v0.1.3
 	github.com/libp2p/go-libp2p-yamux v0.2.8
 	github.com/libp2p/go-tcp-transport v0.2.0
