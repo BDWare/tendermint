@@ -865,10 +865,7 @@ func (sw *Switch) Host() host.Host {
 
 // connect is a helper function to connect to a libp2p peer
 func connect(host host.Host, ctx context.Context, addr NetAddress) error {
-	//fmt.Println(host.ID())
-	//fmt.Println(host.ID())
-	err := host.Connect(ctx, NetAddr2LpAddrInfo(addr))
-	//fmt.Println(err)
+	err := host.Connect(ctx, addr.LpAddrInfo())
 	if err == swarm.ErrDialToSelf {
 		return ErrRejected{
 			id:     addr.ID,

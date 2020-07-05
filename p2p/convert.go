@@ -8,23 +8,23 @@ import (
 	"strings"
 )
 
-func NetAddr2LpAddrInfo(address NetAddress) libp2pPeer.AddrInfo {
-	// maybe false
-	maddr, err := multiaddr.NewMultiaddr(address.DialString())
-	if err != nil {
-
-	}
-	return libp2pPeer.AddrInfo{
-		Addrs: []multiaddr.Multiaddr{maddr},
-		ID:    ID2lpID(address.ID),
-	}
-}
-
-func NetAddr2Multiaddr(na NetAddress) multiaddr.Multiaddr {
-	str := "/ip4/" + na.IP.String() + "/tcp/" + strconv.FormatUint(uint64(na.Port), 10)
-	ma, _ := multiaddr.NewMultiaddr(str)
-	return ma
-}
+//func NetAddr2LpAddrInfo(address NetAddress) libp2pPeer.AddrInfo {
+//	// maybe false
+//	maddr, err := multiaddr.NewMultiaddr(address.DialString())
+//	if err != nil {
+//
+//	}
+//	return libp2pPeer.AddrInfo{
+//		Addrs: []multiaddr.Multiaddr{maddr},
+//		ID:    ID2lpID(address.ID),
+//	}
+//}
+//
+//func NetAddr2Multiaddr(na NetAddress) multiaddr.Multiaddr {
+//	str := "/ip4/" + na.IP.String() + "/tcp/" + strconv.FormatUint(uint64(na.Port), 10)
+//	ma, _ := multiaddr.NewMultiaddr(str)
+//	return ma
+//}
 
 func Multiaddr2NetAddr(id libp2pPeer.ID, ma multiaddr.Multiaddr) *NetAddress {
 	s := ma.String() // for example "/ip4/127.0.0.1/udp/1234"

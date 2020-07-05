@@ -7,7 +7,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/routing"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
-	"github.com/libp2p/go-libp2p-kad-dht/dual"
 	mplex "github.com/libp2p/go-libp2p-mplex"
 	secio "github.com/libp2p/go-libp2p-secio"
 	tls "github.com/libp2p/go-libp2p-tls"
@@ -167,11 +166,11 @@ func newP2PHost(ctx context.Context, cfg *cfg.Config) (host.Host, error) {
 		//"/ip4/0.0.0.0/tcp/0/ws",
 	)
 
-	var dht *dual.DHT
+	var dht *kaddht.IpfsDHT
 	newDHT := func(h host.Host) (routing.PeerRouting, error) {
 		var err error
-		//dht, err = kaddht.New(ctx, h, kaddht.ProtocolPrefix("/tdmApp"), kaddht.Mode(kaddht.ModeServer))
-		dht, err = dual.New(ctx, h, kaddht.ProtocolPrefix("/tdmApp"), kaddht.Mode(kaddht.ModeServer))
+		dht, err = kaddht.New(ctx, h)
+		//dht, err = dual.New(ctx, h, kaddht.ProtocolPrefix("/tdmApp"), kaddht.Mode(kaddht.ModeServer))
 		return dht, err
 	}
 	routing := libp2p.Routing(newDHT)
