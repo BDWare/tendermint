@@ -3,6 +3,7 @@ package host
 import (
 	"context"
 	cfg "github.com/bdware/tendermint/config"
+	"github.com/bdware/tendermint/p2p"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -40,11 +41,16 @@ func NewP2PHost(ctx context.Context, cfg *cfg.Config) (host.Host, error) {
 	security := libp2p.ChainOptions(libp2p.Security(secio.ID, secio.New),
 		libp2p.Security(tls.ID, tls.New))
 
-	// TODO: modify this after refactor config address type
-	listenAddrs := libp2p.ListenAddrStrings(
-		"/ip4/0.0.0.0/tcp/26656",
-		//"/ip4/0.0.0.0/tcp/0/ws",
-	)
+	var listenAddrs libp2p.Option
+	tdmAddr, err := p2p.NewNetAddressString(cfg.P2P.ListenAddress)
+	if err != nil {
+		listenAddrs = libp2p.ListenAddrStrings(
+			"/ip4/0.0.0.0/tcp/26656",
+			//"/ip4/0.0.0.0/tcp/0/ws",
+		)
+	} else {
+		listenAddrs = libp2p.ListenAddrs(tdmAddr.Multiaddr())
+	}
 
 	var dht *kaddht.IpfsDHT
 	newDHT := func(h host.Host) (routing.PeerRouting, error) {

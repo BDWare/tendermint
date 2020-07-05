@@ -243,8 +243,15 @@ func (na *NetAddress) Local() bool {
 }
 
 func (na *NetAddress) Multiaddr() multiaddr.Multiaddr {
-	// tcp or udp ?
-	str := "/ip4/" + na.IP.String() + "/tcp/" + strconv.FormatUint(uint64(na.Port), 10)
+	var prefix string
+	ipStr := na.IP.String()
+	if strings.Count(ipStr, ":") < 2 {
+		prefix = "/ip4/"
+	} else {
+		prefix = "/ip6/"
+	}
+	// tcp or udp or others?
+	str := prefix + ipStr + "/tcp/" + strconv.FormatUint(uint64(na.Port), 10)
 	ma, _ := multiaddr.NewMultiaddr(str)
 	return ma
 }
