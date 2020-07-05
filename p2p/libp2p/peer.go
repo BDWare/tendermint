@@ -286,7 +286,7 @@ func writeUvarint(w io.Writer, i uint64) error {
 }
 
 func (p *peer) sendBytesTo(s network.Stream, msg []byte, chID byte) error {
-	ln := uint64(len(msg))
+	ln := uint64(len(msg)) + 1
 	err := writeUvarint(s, ln)
 	if err == nil {
 		s.Write([]byte{chID})
