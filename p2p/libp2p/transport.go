@@ -412,18 +412,17 @@ func (mt *LpTransport) wrapLpPeer(
 	}
 
 	p := newPeer(
+		s,
 		ni,
 		cfg.ReactorsByCh,
 		mt.host,
 		cfg.ChDescs,
 		cfg.OnPeerError,
-		//PeerMetrics(cfg.metrics),
+		PeerMetrics(cfg.Metrics),
 	)
 
 	p.persistent = persistent
 	p.outbound = cfg.Outbound
 	p.socketAddr = socketAddr
-	p.stream = s
-	go p.recvRoutine()
 	return p
 }
