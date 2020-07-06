@@ -208,7 +208,7 @@ func (c *Connection) CanSend(chID byte) bool {
 func (c *Connection) recvRoutine() {
 	defer c._recover()
 
-	// Read more depending on packet type.
+FOR_LOOP:
 	for {
 		// binary.ReadUvarint
 		length, err := readUvarint(c.s)
@@ -217,7 +217,7 @@ func (c *Connection) recvRoutine() {
 			// receiving is excpected to fail since we will close the connection
 			select {
 			case <-c.quitRecvRoutine:
-				break
+				break FOR_LOOP
 			default:
 			}
 
@@ -229,7 +229,7 @@ func (c *Connection) recvRoutine() {
 				}
 				c.stopForError(err)
 			}
-			break
+			break FOR_LOOP
 		}
 
 		buf := make([]byte, length)
@@ -239,7 +239,7 @@ func (c *Connection) recvRoutine() {
 				c.Logger.Error("Connection failed @ recvRoutine", "conn", c, "err", err)
 				c.stopForError(err)
 			}
-			break
+			break FOR_LOOP
 		}
 		chID := buf[0]
 		if n != 0 {
