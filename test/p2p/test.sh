@@ -39,7 +39,7 @@ bash test/p2p/fast_sync/test.sh "$DOCKER_IMAGE" "$NETWORK_NAME" "$IPV" "$N" "$PR
 bash test/p2p/kill_all/test.sh "$DOCKER_IMAGE" "$NETWORK_NAME" "$IPV" "$N" 3
 
 # test pex
-## not used in libp2p
+# ignored for libp2p
 if [[ $DOCKER_IMAGE == "tester" ]]; then
 	bash test/p2p/pex/test.sh "$DOCKER_IMAGE" "$NETWORK_NAME" "$IPV" "$N" "$PROXY_APP"
 fi

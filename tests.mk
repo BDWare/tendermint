@@ -7,10 +7,10 @@ BINDIR ?= $(GOPATH)/bin
 
 ## required to be run first by most tests
 build_docker_test_image:
-	## for tmd p2p
+	# for original p2p
 	#docker build -t tester -f ./test/docker/Dockerfile .
-	## for libp2p
-	docker build -t tester1 -f ./test/docker/Dockerfile1 .
+	# for libp2p
+	docker build -t tester-libp2p -f ./test/docker/Dockerfile-libp2p .
 .PHONY: build_docker_test_image
 
 ### coverage, app, persistence, and libs tests
@@ -50,10 +50,10 @@ test_p2p:
 	rm -rf test/logs && mkdir -p test/logs
 	docker run -d -v "$(CURDIR)/test/logs:/var/log/" -p 127.0.0.1:5514:514/udp --name rsyslog voxxit/rsyslog
 	# requires 'tester' the image from above
-	## for tdm p2p
+	# for original p2p
 	#bash test/p2p/test.sh tester
-	## for libp2p
-	bash test/p2p/test.sh tester1
+	# for libp2p
+	bash test/p2p/test.sh tester-libp2p
 	# the `docker cp` takes a really long time; uncomment for debugging
 	#
 	# mkdir -p test/p2p/logs && docker cp rsyslog:/var/log test/p2p/logs
@@ -72,10 +72,10 @@ test_p2p_ipv6:
 	rm -rf test/logs && mkdir -p test/logs
 	docker run -d -v "$(CURDIR)/test/logs:/var/log/" -p 127.0.0.1:5514:514/udp --name rsyslog voxxit/rsyslog
 	# requires 'tester' the image from above
-	## for tdm p2p
+	# for tdm p2p
 	#bash test/p2p/test.sh tester 6
-	## for libp2p
-	bash test/p2p/test.sh tester1 6
+	# for libp2p
+	bash test/p2p/test.sh tester-libp2p 6
 	# the `docker cp` takes a really long time; uncomment for debugging
 	#
 	# mkdir -p test/p2p/logs && docker cp rsyslog:/var/log test/p2p/logs

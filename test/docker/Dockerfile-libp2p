@@ -25,7 +25,7 @@ RUN make install_abci
 RUN make install
 
 RUN tendermint testnet \
-  --config $REPO/test/docker/config-template1.toml \
+  --config $REPO/test/docker/config-template-libp2p.toml \
   --node-dir-prefix="mach" \
   --v=4 \
   --populate-persistent-peers=false \
