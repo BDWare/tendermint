@@ -1,9 +1,13 @@
-package host
+// Copyright (c) 2020 The BDWare Authors. All rights reserved.
+// Use of this source code is governed by Apache License 2.0 that can be
+// found in the LICENSE file.
+
+package libp2p
 
 import (
 	"context"
-	cfg "github.com/bdware/tendermint/config"
-	"github.com/bdware/tendermint/p2p"
+	"io/ioutil"
+
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -14,7 +18,9 @@ import (
 	tls "github.com/libp2p/go-libp2p-tls"
 	yamux "github.com/libp2p/go-libp2p-yamux"
 	"github.com/libp2p/go-tcp-transport"
-	"io/ioutil"
+
+	cfg "github.com/bdware/tendermint/config"
+	"github.com/bdware/tendermint/p2p"
 )
 
 func NewP2PHost(ctx context.Context, cfg *cfg.Config) (host.Host, error) {
@@ -76,6 +82,3 @@ func NewP2PHost(ctx context.Context, cfg *cfg.Config) (host.Host, error) {
 
 	return host, nil
 }
-
-
-

@@ -1,8 +1,14 @@
+// Copyright (c) 2020 The BDWare Authors. All rights reserved.
+// Use of this source code is governed by Apache License 2.0 that can be
+// found in the LICENSE file.
+
 package main
 
 import (
 	"bytes"
+
 	"github.com/dgraph-io/badger"
+
 	abcitypes "github.com/bdware/tendermint/abci/types"
 )
 

@@ -4,16 +4,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/bdware/tendermint/p2p/libp2p"
-	host2 "github.com/bdware/tendermint/tendermint_app/host"
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"net"
 	"net/http"
 	_ "net/http/pprof" // nolint: gosec // securely exposed on separate, optional port
 	"strings"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -36,6 +34,7 @@ import (
 	"github.com/bdware/tendermint/libs/service"
 	mempl "github.com/bdware/tendermint/mempool"
 	"github.com/bdware/tendermint/p2p"
+	"github.com/bdware/tendermint/p2p/libp2p"
 	"github.com/bdware/tendermint/p2p/pex"
 	"github.com/bdware/tendermint/privval"
 	"github.com/bdware/tendermint/proxy"
@@ -48,6 +47,7 @@ import (
 	"github.com/bdware/tendermint/state/txindex/kv"
 	"github.com/bdware/tendermint/state/txindex/null"
 	"github.com/bdware/tendermint/store"
+	myp2p "github.com/bdware/tendermint/test/builtin/libp2p"
 	"github.com/bdware/tendermint/types"
 	tmtime "github.com/bdware/tendermint/types/time"
 	"github.com/bdware/tendermint/version"
@@ -93,7 +93,7 @@ type Provider func(*cfg.Config, log.Logger) (*Node, error)
 func DefaultNewNode(config *cfg.Config, logger log.Logger) (*Node, error) {
 	var (
 		nodeKey *p2p.NodeKey
-		err		error
+		err     error
 	)
 	if !config.P2P.Libp2p {
 		nodeKey, err = p2p.LoadOrGenNodeKey(config.NodeKeyFile())
@@ -105,7 +105,7 @@ func DefaultNewNode(config *cfg.Config, logger log.Logger) (*Node, error) {
 	var host host.Host
 	// create libp2p host
 	if config.P2P.Libp2p {
-		host, err = host2.NewP2PHost(context.Background(), config)
+		host, err = myp2p.NewP2PHost(context.Background(), config)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create new libp2p host: %w", err)
 		}
@@ -183,7 +183,7 @@ type Node struct {
 
 	// network
 	//transport   *p2p.MultiplexTransport
-	transport 	p2p.TransportLifecycle
+	transport   p2p.TransportLifecycle
 	sw          *p2p.Switch  // p2p connections
 	addrBook    pex.AddrBook // known peers
 	nodeInfo    p2p.NodeInfo
@@ -671,7 +671,6 @@ func createPEXReactorAndAddToSwitch(addrBook pex.AddrBook, config *cfg.Config,
 	return pexReactor
 }
 
-
 // NewNode returns a new, ready to go, Tendermint Node.
 func NewNode(config *cfg.Config,
 	privValidator types.PrivValidator,
@@ -796,7 +795,7 @@ func NewNode(config *cfg.Config,
 
 	// Setup Transport.
 	var (
-		transport 	p2p.Transport
+		transport   p2p.Transport
 		peerFilters []p2p.PeerFilterFunc
 	)
 	if !config.P2P.Libp2p {
@@ -897,6 +896,7 @@ func NewNode(config *cfg.Config,
 
 	return node, nil
 }
+
 // OnStart starts the Node. It implements service.Service.
 func (n *Node) OnStart() error {
 	now := tmtime.Now()

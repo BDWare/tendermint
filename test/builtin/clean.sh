@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # badger db
-rm -rf /tmp/badger > /dev/null 2>&1
+rm -rf /tmp/tendermint/test-builtin/badger > /dev/null 2>&1
 
 # addrbook
 rm example/config/addrbook.json  > /dev/null 2>&1

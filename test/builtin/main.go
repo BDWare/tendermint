@@ -1,3 +1,7 @@
+// Copyright (c) 2020 The BDWare Authors. All rights reserved.
+// Use of this source code is governed by Apache License 2.0 that can be
+// found in the LICENSE file.
+
 package main
 
 import (
@@ -21,7 +25,7 @@ import (
 	"github.com/bdware/tendermint/p2p"
 	"github.com/bdware/tendermint/privval"
 	"github.com/bdware/tendermint/proxy"
-	host2 "github.com/bdware/tendermint/tendermint_app/host"
+	"github.com/bdware/tendermint/test/builtin/libp2p"
 )
 
 var configFile string
@@ -31,7 +35,7 @@ func init() {
 }
 
 func main() {
-	db, err := badger.Open(badger.DefaultOptions("/tmp/badger"))
+	db, err := badger.Open(badger.DefaultOptions("/tmp/tendermint/test-builtin/badger"))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to open badger db: %v", err)
 		os.Exit(1)
@@ -77,8 +81,7 @@ func newTendermint(app abci.Application, configFile string) (*nm.Node, error) {
 	// create logger
 	logger := log.NewTMLogger(log.NewSyncWriter(os.Stdout))
 	var err error
-	logger, err = tmflags.ParseLogLevel(config.LogLevel, logger, cfg.DefaultLogLevel())
-	if err != nil {
+	if logger, err = tmflags.ParseLogLevel(config.LogLevel, logger, cfg.DefaultLogLevel()); err != nil {
 		return nil, fmt.Errorf("failed to parse log level: %w", err)
 	}
 
@@ -91,17 +94,15 @@ func newTendermint(app abci.Application, configFile string) (*nm.Node, error) {
 	var nodeKey *p2p.NodeKey
 	if !config.P2P.Libp2p {
 		//read node key
-		nodeKey, err = p2p.LoadNodeKey(config.NodeKeyFile())
-		if err != nil {
+		if nodeKey, err = p2p.LoadNodeKey(config.NodeKeyFile()); err != nil {
 			return nil, fmt.Errorf("failed to load node's key: %w", err)
 		}
 	}
 
-	var host host.Host
 	// create libp2p host
+	var host host.Host
 	if config.P2P.Libp2p {
-		host, err = host2.NewP2PHost(context.Background(), config)
-		if err != nil {
+		if host, err = libp2p.NewP2PHost(context.Background(), config); err != nil {
 			return nil, fmt.Errorf("failed to create new libp2p host: %w", err)
 		}
 		fmt.Println("host.ID:", host.ID())
