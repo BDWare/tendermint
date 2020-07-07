@@ -35,6 +35,7 @@ import (
 	mempl "github.com/bdware/tendermint/mempool"
 	"github.com/bdware/tendermint/p2p"
 	"github.com/bdware/tendermint/p2p/libp2p"
+	lputil "github.com/bdware/tendermint/p2p/libp2p/util"
 	"github.com/bdware/tendermint/p2p/pex"
 	"github.com/bdware/tendermint/privval"
 	"github.com/bdware/tendermint/proxy"
@@ -641,7 +642,7 @@ func createAddrBookAndSetOnSwitch(config *cfg.Config, sw *p2p.Switch,
 		}
 	} else {
 		for _, addr := range sw.Host().Addrs() {
-			addrBook.AddOurAddress(libp2p.Multiaddr2NetAddr(sw.Host().ID(), addr))
+			addrBook.AddOurAddress(p2p.NewNetAddressLibp2pIDMultiaddr(sw.Host().ID(), addr))
 		}
 	}
 
@@ -1306,7 +1307,7 @@ func makeNodeInfo(
 	// don't use config when use libp2p
 	// 0.0.0.0 ? The first multiAddr may be invalid, such as 127.0.0.1
 	if config.P2P.Libp2p {
-		nodeInfo.ListenAddr = libp2p.Multiaddr2DialString(host.Addrs()[0])
+		nodeInfo.ListenAddr = lputil.Multiaddr2DialString(host.Addrs()[0])
 	}
 
 	err := nodeInfo.Validate()

@@ -7,7 +7,7 @@ BINDIR ?= $(GOPATH)/bin
 
 ## required to be run first by most tests
 build_docker_test_image:
-	# for original p2p
+	# for Tendermint p2p
 	#docker build -t tester -f ./test/docker/Dockerfile .
 	# for libp2p
 	docker build -t tester-libp2p -f ./test/docker/Dockerfile-libp2p .
@@ -50,7 +50,7 @@ test_p2p:
 	rm -rf test/logs && mkdir -p test/logs
 	docker run -d -v "$(CURDIR)/test/logs:/var/log/" -p 127.0.0.1:5514:514/udp --name rsyslog voxxit/rsyslog
 	# requires 'tester' the image from above
-	# for original p2p
+	# for Tendermint p2p
 	#bash test/p2p/test.sh tester
 	# for libp2p
 	bash test/p2p/test.sh tester-libp2p

@@ -8,7 +8,6 @@ import (
 	"github.com/bdware/tendermint/libs/cmap"
 	"github.com/bdware/tendermint/libs/log"
 	"github.com/bdware/tendermint/libs/service"
-
 	tmconn "github.com/bdware/tendermint/p2p/conn"
 )
 

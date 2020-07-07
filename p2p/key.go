@@ -8,18 +8,10 @@ import (
 
 	"github.com/bdware/tendermint/crypto"
 	"github.com/bdware/tendermint/crypto/ed25519"
+	lpkey "github.com/bdware/tendermint/crypto/libp2p"
 	tmos "github.com/bdware/tendermint/libs/os"
-	"github.com/bdware/tendermint/p2p/libp2p"
+	lputil "github.com/bdware/tendermint/p2p/libp2p/util"
 )
-
-// For original P2P: ID is a hex-encoded crypto.Address
-// For libp2p: ID is a base58 encoded libp2p ID string (ID.Pretty() of github.com/libp2p/go-libp2p-core/peer)
-type ID string
-
-// IDByteLength is the length of a crypto.Address. Currently only 20.
-// Only used in original P2P ID for now.
-// TODO: support other length addresses ?
-const IDByteLength = crypto.AddressSize
 
 //------------------------------------------------------------------------------
 // Persistent peer ID
@@ -43,14 +35,14 @@ func (nodeKey *NodeKey) PubKey() crypto.PubKey {
 
 // PubKeyToID returns the ID corresponding to the given PubKey.
 func PubKeyToID(pubKey crypto.PubKey) ID {
-	if _, ok := pubKey.(libp2p.PubKey); ok {
-		return libp2p.PubKeyToID(pubKey)
+	if _, ok := pubKey.(lpkey.PubKey); ok {
+		return lputil.PubKeyToID(pubKey)
 	} else {
 		return pubKeyToID(pubKey)
 	}
 }
 
-// pubKeyToID returns the ID corresponding to the given PubKey for original P2P.
+// pubKeyToID returns the ID corresponding to the given PubKey for Tendermint P2P.
 // It's the hex-encoding of the pubKey.Address().
 func pubKeyToID(pubKey crypto.PubKey) ID {
 	return ID(hex.EncodeToString(pubKey.Address()))

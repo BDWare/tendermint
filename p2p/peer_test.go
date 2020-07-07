@@ -11,12 +11,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bdware/tendermint/config"
 	"github.com/bdware/tendermint/crypto"
 	"github.com/bdware/tendermint/crypto/ed25519"
 	"github.com/bdware/tendermint/libs/bytes"
 	"github.com/bdware/tendermint/libs/log"
-
-	"github.com/bdware/tendermint/config"
 	tmconn "github.com/bdware/tendermint/p2p/conn"
 )
 

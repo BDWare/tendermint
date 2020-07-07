@@ -13,6 +13,7 @@ import (
 	"github.com/bdware/tendermint/libs/service"
 	"github.com/bdware/tendermint/p2p"
 	tmconn "github.com/bdware/tendermint/p2p/conn"
+	"github.com/bdware/tendermint/p2p/libp2p/util"
 )
 
 var _ p2p.Peer = (*peer)(nil)
@@ -243,7 +244,7 @@ func (p *peer) hasChannel(chID byte) bool {
 func (p *peer) CloseConn() error {
 	// do nothing now
 	// TODO: check if correct or not
-	return p.host.Network().ClosePeer(ID2lpID(p.ID()))
+	return p.host.Network().ClosePeer(util.ID2Libp2pID(p.ID()))
 }
 
 //---------------------------------------------------

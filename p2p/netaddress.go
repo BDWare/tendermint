@@ -17,7 +17,8 @@ import (
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 
-	"github.com/bdware/tendermint/p2p/libp2p"
+	lputil "github.com/bdware/tendermint/p2p/libp2p/util"
+	"github.com/bdware/tendermint/p2p/peerid"
 )
 
 // NetAddress defines information about a peer on the network
@@ -142,6 +143,18 @@ func NewNetAddressIPPort(ip net.IP, port uint16) *NetAddress {
 	}
 }
 
+func NewNetAddressLibp2pIDMultiaddr(id lppeer.ID, ma multiaddr.Multiaddr) *NetAddress {
+	s := ma.String() // for example "/ip4/127.0.0.1/udp/1234"
+	//s = s[5:]
+	parts := strings.Split(s, "/")
+	port, _ := strconv.Atoi(parts[4])
+	return &NetAddress{
+		ID:   lputil.Libp2pID2ID(id),
+		Port: uint16(port),
+		IP:   net.ParseIP(parts[2]),
+	}
+}
+
 // Equals reports whether na and other are the same addresses,
 // including their ID, IP, and Port.
 func (na *NetAddress) Equals(other interface{}) bool {
@@ -262,7 +275,7 @@ func (na *NetAddress) LpAddrInfo() lppeer.AddrInfo {
 	maddr := na.Multiaddr()
 	return lppeer.AddrInfo{
 		Addrs: []multiaddr.Multiaddr{maddr},
-		ID:    libp2p.ID2lpID(na.ID),
+		ID:    lputil.ID2Libp2pID(na.ID),
 	}
 }
 
@@ -412,9 +425,9 @@ func validateID(id ID) error {
 		if err != nil {
 			return fmt.Errorf("invalid libp2p ID length - got %d, expected 59, 46 or 52", len(idBytes))
 		}
-		if len(idBytes) != IDByteLength {
+		if len(idBytes) != peerid.IDByteLength {
 			return fmt.Errorf(
-				"invalid tendermint hex ID length - got %d, expected %d", len(idBytes), IDByteLength)
+				"invalid tendermint hex ID length - got %d, expected %d", len(idBytes), peerid.IDByteLength)
 		}
 		return nil
 	}

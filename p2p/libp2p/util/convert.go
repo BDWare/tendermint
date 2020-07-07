@@ -1,15 +1,25 @@
-package libp2p
+package util
 
 import (
-	"net"
-	"strconv"
+	"encoding/hex"
 	"strings"
 
 	lppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
 
-	"github.com/bdware/tendermint/p2p"
+	"github.com/bdware/tendermint/crypto"
+	lpkey "github.com/bdware/tendermint/crypto/libp2p"
+	"github.com/bdware/tendermint/p2p/peerid"
 )
+
+func PubKeyToID(pubKey crypto.PubKey) peerid.ID {
+	if pk, ok := pubKey.(lpkey.PubKey); ok {
+		peerID, _ := lppeer.IDFromPublicKey(pk.K)
+		return Libp2pID2ID(peerID)
+	} else {
+		return peerid.ID(hex.EncodeToString(pubKey.Address()))
+	}
+}
 
 //func NetAddr2LpAddrInfo(address NetAddress) lppeer.AddrInfo {
 //	// maybe false
@@ -29,18 +39,6 @@ import (
 //	return ma
 //}
 
-func Multiaddr2NetAddr(id lppeer.ID, ma multiaddr.Multiaddr) *p2p.NetAddress {
-	s := ma.String() // for example "/ip4/127.0.0.1/udp/1234"
-	//s = s[5:]
-	parts := strings.Split(s, "/")
-	port, _ := strconv.Atoi(parts[4])
-	return &p2p.NetAddress{
-		ID:   LpID2ID(id),
-		Port: uint16(port),
-		IP:   net.ParseIP(parts[2]),
-	}
-}
-
 func Multiaddr2DialString(ma multiaddr.Multiaddr) string {
 	s := ma.String() // for example "/ip4/127.0.0.1/udp/1234"
 	//s = s[5:]
@@ -48,7 +46,7 @@ func Multiaddr2DialString(ma multiaddr.Multiaddr) string {
 	return parts[2] + ":" + parts[4]
 }
 
-func ID2lpID(id p2p.ID) p2p.Libp2pID {
+func ID2Libp2pID(id peerid.ID) lppeer.ID {
 	// now p2p.ID is human-readable base58 encoded string
 	id1, err := lppeer.Decode(string(id))
 	if err != nil {
@@ -58,6 +56,6 @@ func ID2lpID(id p2p.ID) p2p.Libp2pID {
 }
 
 // In fact, libp2p peer.ID is not a string
-func LpID2ID(id p2p.Libp2pID) p2p.ID {
-	return p2p.ID(id.String())
+func Libp2pID2ID(id lppeer.ID) peerid.ID {
+	return peerid.ID(id.String())
 }

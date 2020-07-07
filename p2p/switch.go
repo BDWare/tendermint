@@ -3,12 +3,12 @@ package p2p
 import (
 	"context"
 	"fmt"
-	"github.com/libp2p/go-libp2p-core/host"
-	swarm "github.com/libp2p/go-libp2p-swarm"
 	"math"
 	"sync"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/host"
+	swarm "github.com/libp2p/go-libp2p-swarm"
 	"github.com/pkg/errors"
 
 	"github.com/bdware/tendermint/config"
