@@ -145,7 +145,7 @@ func SwitchPeerFilters(filters ...PeerFilterFunc) SwitchOption {
 	return func(sw *Switch) { sw.peerFilters = filters }
 }
 
-// WithMetrics sets the Metrics.
+// WithMetrics sets the metrics.
 func WithMetrics(metrics *Metrics) SwitchOption {
 	return func(sw *Switch) { sw.metrics = metrics }
 }

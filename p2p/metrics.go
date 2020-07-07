@@ -8,12 +8,12 @@ import (
 )
 
 const (
-	// MetricsSubsystem is a subsystem shared by all Metrics exposed by this
+	// MetricsSubsystem is a subsystem shared by all metrics exposed by this
 	// package.
 	MetricsSubsystem = "p2p"
 )
 
-// Metrics contains Metrics exposed by this package.
+// Metrics contains metrics exposed by this package.
 type Metrics struct {
 	// Number of peers.
 	Peers metrics.Gauge

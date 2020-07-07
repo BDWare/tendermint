@@ -257,28 +257,6 @@ func (na *NetAddress) Local() bool {
 	return na.IP.IsLoopback() || zero4.Contains(na.IP)
 }
 
-func (na *NetAddress) Multiaddr() multiaddr.Multiaddr {
-	var prefix string
-	ipStr := na.IP.String()
-	if strings.Count(ipStr, ":") < 2 {
-		prefix = "/ip4/"
-	} else {
-		prefix = "/ip6/"
-	}
-	// tcp or udp or others?
-	str := prefix + ipStr + "/tcp/" + strconv.FormatUint(uint64(na.Port), 10)
-	ma, _ := multiaddr.NewMultiaddr(str)
-	return ma
-}
-
-func (na *NetAddress) LpAddrInfo() lppeer.AddrInfo {
-	maddr := na.Multiaddr()
-	return lppeer.AddrInfo{
-		Addrs: []multiaddr.Multiaddr{maddr},
-		ID:    lputil.ID2Libp2pID(na.ID),
-	}
-}
-
 // ReachabilityTo checks whenever o can be reached from na.
 func (na *NetAddress) ReachabilityTo(o *NetAddress) int {
 	const (

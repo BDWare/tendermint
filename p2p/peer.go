@@ -46,7 +46,7 @@ type peerConn struct {
 	persistent bool
 	conn       net.Conn // source connection
 
-	socketAddr *NetAddress // dial/accept
+	socketAddr *NetAddress
 
 	// cached RemoteIP()
 	ip net.IP
