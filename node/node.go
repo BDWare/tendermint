@@ -554,38 +554,7 @@ func createTransportWithLibp2p(
 	return transport, peerFilters
 }
 
-//func createSwitch(config *cfg.Config,
-//	transport p2p.Transport,
-//	p2pMetrics *p2p.Metrics,
-//	peerFilters []p2p.PeerFilterFunc,
-//	mempoolReactor *mempl.Reactor,
-//	bcReactor p2p.Reactor,
-//	consensusReactor *consensus.Reactor,
-//	evidenceReactor *evidence.Reactor,
-//	nodeInfo p2p.NodeInfo,
-//	nodeKey *p2p.NodeKey,
-//	p2pLogger log.Logger) *p2p.Switch {
-//
-//	sw := p2p.NewSwitch(
-//		config.P2P,
-//		transport,
-//		p2p.WithMetrics(p2pMetrics),
-//		p2p.SwitchPeerFilters(peerFilters...),
-//	)
-//	sw.SetLogger(p2pLogger)
-//	sw.AddReactor("MEMPOOL", mempoolReactor)
-//	sw.AddReactor("BLOCKCHAIN", bcReactor)
-//	sw.AddReactor("CONSENSUS", consensusReactor)
-//	sw.AddReactor("EVIDENCE", evidenceReactor)
-//
-//	sw.SetNodeInfo(nodeInfo)
-//	sw.SetNodeKey(nodeKey)
-//
-//	p2pLogger.Info("P2P Node ID", "ID", nodeKey.ID(), "file", config.NodeKeyFile())
-//	return sw
-//}
-
-func createSwitchWithLibp2p(config *cfg.Config,
+func createSwitch(config *cfg.Config,
 	transport p2p.Transport,
 	p2pMetrics *p2p.Metrics,
 	peerFilters []p2p.PeerFilterFunc,
@@ -595,15 +564,13 @@ func createSwitchWithLibp2p(config *cfg.Config,
 	evidenceReactor *evidence.Reactor,
 	nodeInfo p2p.NodeInfo,
 	nodeKey *p2p.NodeKey,
-	p2pLogger log.Logger,
-	host host.Host) *p2p.Switch {
+	p2pLogger log.Logger) *p2p.Switch {
 
 	sw := p2p.NewSwitch(
 		config.P2P,
 		transport,
 		p2p.WithMetrics(p2pMetrics),
 		p2p.SwitchPeerFilters(peerFilters...),
-		p2p.WithLibp2pHost(host),
 	)
 	sw.SetLogger(p2pLogger)
 	sw.AddReactor("MEMPOOL", mempoolReactor)
@@ -618,8 +585,41 @@ func createSwitchWithLibp2p(config *cfg.Config,
 	return sw
 }
 
+//func createSwitchWithLibp2p(config *cfg.Config,
+//	transport p2p.Transport,
+//	p2pMetrics *p2p.Metrics,
+//	peerFilters []p2p.PeerFilterFunc,
+//	mempoolReactor *mempl.Reactor,
+//	bcReactor p2p.Reactor,
+//	consensusReactor *consensus.Reactor,
+//	evidenceReactor *evidence.Reactor,
+//	nodeInfo p2p.NodeInfo,
+//	nodeKey *p2p.NodeKey,
+//	p2pLogger log.Logger,
+//	host host.Host) *p2p.Switch {
+//
+//	sw := p2p.NewSwitch(
+//		config.P2P,
+//		transport,
+//		p2p.WithMetrics(p2pMetrics),
+//		p2p.SwitchPeerFilters(peerFilters...),
+//		p2p.WithLibp2pHost(host),
+//	)
+//	sw.SetLogger(p2pLogger)
+//	sw.AddReactor("MEMPOOL", mempoolReactor)
+//	sw.AddReactor("BLOCKCHAIN", bcReactor)
+//	sw.AddReactor("CONSENSUS", consensusReactor)
+//	sw.AddReactor("EVIDENCE", evidenceReactor)
+//
+//	sw.SetNodeInfo(nodeInfo)
+//	sw.SetNodeKey(nodeKey)
+//
+//	p2pLogger.Info("P2P Node ID", "ID", nodeKey.ID(), "file", config.NodeKeyFile())
+//	return sw
+//}
+
 func createAddrBookAndSetOnSwitch(config *cfg.Config, sw *p2p.Switch,
-	p2pLogger log.Logger, nodeKey *p2p.NodeKey) (pex.AddrBook, error) {
+	p2pLogger log.Logger, nodeKey *p2p.NodeKey, host host.Host) (pex.AddrBook, error) {
 
 	addrBook := pex.NewAddrBook(config.P2P.AddrBookFile(), config.P2P.AddrBookStrict)
 	addrBook.SetLogger(p2pLogger.With("book", config.P2P.AddrBookFile()))
@@ -641,8 +641,8 @@ func createAddrBookAndSetOnSwitch(config *cfg.Config, sw *p2p.Switch,
 			addrBook.AddOurAddress(addr)
 		}
 	} else {
-		for _, addr := range sw.Host().Addrs() {
-			addrBook.AddOurAddress(p2p.NewNetAddressLibp2pIDMultiaddr(sw.Host().ID(), addr))
+		for _, addr := range host.Addrs() {
+			addrBook.AddOurAddress(p2p.NewNetAddressLibp2pIDMultiaddr(host.ID(), addr))
 		}
 	}
 
@@ -807,23 +807,9 @@ func NewNode(config *cfg.Config,
 
 	// Setup Switch.
 	p2pLogger := logger.With("module", "p2p")
-	//var sw *p2p.Switch
-	//if !config.P2P.Libp2p {
-	//	sw = createSwitch(
-	//		config, transport, p2pMetrics, peerFilters, mempoolReactor, bcReactor,
-	//		consensusReactor, evidenceReactor, nodeInfo, nodeKey, p2pLogger,
-	//	)
-	//} else {
-	//	sw = createSwitchWithLibp2p(
-	//		config, transport, p2pMetrics, peerFilters, mempoolReactor, bcReactor,
-	//		consensusReactor, evidenceReactor, nodeInfo, nodeKey, p2pLogger, host,
-	//	)
-	//}
-
-	// createSwitchWithLibp2p create a switch using host or not (if host is nil)
-	sw := createSwitchWithLibp2p(
+	sw := createSwitch(
 		config, transport, p2pMetrics, peerFilters, mempoolReactor, bcReactor,
-		consensusReactor, evidenceReactor, nodeInfo, nodeKey, p2pLogger, host,
+		consensusReactor, evidenceReactor, nodeInfo, nodeKey, p2pLogger,
 	)
 
 	err = sw.AddPersistentPeers(splitAndTrimEmpty(config.P2P.PersistentPeers, ",", " "))
@@ -836,7 +822,7 @@ func NewNode(config *cfg.Config,
 		return nil, errors.Wrap(err, "could not add peer ids from unconditional_peer_ids field")
 	}
 
-	addrBook, err := createAddrBookAndSetOnSwitch(config, sw, p2pLogger, nodeKey)
+	addrBook, err := createAddrBookAndSetOnSwitch(config, sw, p2pLogger, nodeKey, host)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create addrbook")
 	}
