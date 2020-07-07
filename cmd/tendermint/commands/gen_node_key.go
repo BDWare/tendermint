@@ -7,6 +7,7 @@ import (
 
 	tmos "github.com/bdware/tendermint/libs/os"
 	"github.com/bdware/tendermint/p2p"
+	"github.com/bdware/tendermint/p2p/libp2p"
 )
 
 // GenNodeKeyCmd allows the generation of a node key. It prints node's ID to
@@ -30,7 +31,7 @@ func genNodeKey(cmd *cobra.Command, args []string) error {
 	if !config.P2P.Libp2p {
 		nodeKey, err = p2p.LoadOrGenNodeKey(nodeKeyFile)
 	} else {
-		nodeKey, err = p2p.LoadOrGenLpNodeKey(nodeKeyFile)
+		nodeKey, err = libp2p.LoadOrGenLpNodeKey(nodeKeyFile)
 	}
 	if err != nil {
 		return err

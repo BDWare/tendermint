@@ -2,16 +2,16 @@ package libp2p
 
 import (
 	"fmt"
-	"github.com/bdware/tendermint/p2p"
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/network"
 	"net"
 	"time"
+
+	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/network"
 
 	"github.com/bdware/tendermint/libs/cmap"
 	"github.com/bdware/tendermint/libs/log"
 	"github.com/bdware/tendermint/libs/service"
-
+	"github.com/bdware/tendermint/p2p"
 	tmconn "github.com/bdware/tendermint/p2p/conn"
 )
 
@@ -32,10 +32,10 @@ type peer struct {
 	nodeInfo p2p.NodeInfo
 	channels []byte
 
-	conn	*Connection
+	conn *Connection
 
 	// our local peer host to send msg to this peer
-	host    host.Host
+	host host.Host
 
 	// User data
 	Data *cmap.CMap
@@ -53,7 +53,7 @@ func newPeer(
 	host host.Host,
 	chDescs []*tmconn.ChannelDescriptor,
 	onPeerError func(p2p.Peer, interface{}),
-	options... PeerOption,
+	options ...PeerOption,
 ) *peer {
 	p := &peer{
 		nodeInfo:      nodeInfo,
@@ -243,7 +243,7 @@ func (p *peer) hasChannel(chID byte) bool {
 func (p *peer) CloseConn() error {
 	// do nothing now
 	// TODO: check if correct or not
-	return p.host.Network().ClosePeer(p2p.ID2lpID(p.ID()))
+	return p.host.Network().ClosePeer(ID2lpID(p.ID()))
 }
 
 //---------------------------------------------------

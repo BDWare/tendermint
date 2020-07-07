@@ -15,6 +15,7 @@ import (
 	"github.com/bdware/tendermint/libs/bytes"
 	tmrand "github.com/bdware/tendermint/libs/rand"
 	"github.com/bdware/tendermint/p2p"
+	"github.com/bdware/tendermint/p2p/libp2p"
 	"github.com/bdware/tendermint/privval"
 	"github.com/bdware/tendermint/types"
 	tmtime "github.com/bdware/tendermint/types/time"
@@ -246,12 +247,12 @@ func persistentPeersString(config *cfg.Config) (string, error) {
 		config.SetRoot(nodeDir)
 		var (
 			nodeKey *p2p.NodeKey
-			err		error
+			err     error
 		)
 		if !config.P2P.Libp2p {
 			nodeKey, err = p2p.LoadNodeKey(config.NodeKeyFile())
 		} else {
-			nodeKey, err = p2p.LoadLpNodeKey(config.NodeKeyFile())
+			nodeKey, err = libp2p.LoadLpNodeKey(config.NodeKeyFile())
 		}
 		if err != nil {
 			return "", err

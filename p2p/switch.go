@@ -34,17 +34,6 @@ const (
 	reconnectBackOffBaseSeconds = 3
 )
 
-//const (
-//	ChannelPrefix = "tdm-"
-//)
-
-// like "tdm-1" "tdm-2" ...
-//func protocolForChannel(chID byte) protocol.ID {
-//	proto := fmt.Sprintf("%s%d", ChannelPrefix, chID)
-//	return protocol.ID(proto)
-//}
-
-
 // MConnConfig returns an MConnConfig with fields updated
 // from the P2PConfig.
 func MConnConfig(cfg *config.P2PConfig) conn.MConnConfig {
@@ -105,7 +94,7 @@ type Switch struct {
 	rng *rand.Rand // seed for randomizing dial times and orders
 
 	metrics *Metrics
-	host 	host.Host
+	host    host.Host
 }
 
 // NetAddress returns the address the switch is listening on.
@@ -184,19 +173,6 @@ func (sw *Switch) AddReactor(name string, reactor Reactor) Reactor {
 		}
 		sw.chDescs = append(sw.chDescs, chDesc)
 		sw.reactorsByCh[chID] = reactor
-
-		// This is where host receive msg and distribute to reactors.
-		//sw.host.SetStreamHandler(protocolForChannel(chID), func(s network.Stream) {
-		//	id := lpID2ID(s.Conn().RemotePeer())
-		//	p := sw.peers.Get(id)
-		//	if p == nil {
-		//		s.Reset()
-		//		return
-		//	}
-		//	lpp, _ := p.(*lpPeer)
-		//	lpp.streams[chID] = s
-		//	go lpp.recvRoutine(s, chID)
-		//})
 	}
 	sw.reactors[name] = reactor
 	reactor.SetSwitch(sw)
@@ -869,7 +845,7 @@ func connect(host host.Host, ctx context.Context, addr NetAddress) error {
 	if err == swarm.ErrDialToSelf {
 		return ErrRejected{
 			id:     addr.ID,
-			addr:	addr,
+			addr:   addr,
 			err:    err,
 			isSelf: true,
 		}

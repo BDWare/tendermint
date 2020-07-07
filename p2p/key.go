@@ -4,26 +4,20 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/bdware/tendermint/crypto/ed25519"
-	libp2p_peer "github.com/libp2p/go-libp2p-core/peer"
 	"io/ioutil"
 
 	"github.com/bdware/tendermint/crypto"
+	"github.com/bdware/tendermint/crypto/ed25519"
 	tmos "github.com/bdware/tendermint/libs/os"
+	"github.com/bdware/tendermint/p2p/libp2p"
 )
 
-// For temdermint p2p: ID is a hex-encoded crypto.Address
+// For original P2P: ID is a hex-encoded crypto.Address
 // For libp2p: ID is a base58 encoded libp2p ID string (ID.Pretty() of github.com/libp2p/go-libp2p-core/peer)
 type ID string
 
-//type ID interface {
-//	isID()
-//}
-//type id string
-//func (id id) isID() {}
-
-// IDByteLength is only used in tendermint p2p ID for now.
 // IDByteLength is the length of a crypto.Address. Currently only 20.
+// Only used in original P2P ID for now.
 // TODO: support other length addresses ?
 const IDByteLength = crypto.AddressSize
 
@@ -48,21 +42,18 @@ func (nodeKey *NodeKey) PubKey() crypto.PubKey {
 }
 
 // PubKeyToID returns the ID corresponding to the given PubKey.
-// It's the hex-encoding of the pubKey.Address().
-//func PubKeyToID(pubKey crypto.PubKey) ID {
-//	return ID(hex.EncodeToString(pubKey.Address()))
-//}
-
-// PubKeyToID returns libp2p peer.ID or tendermint p2p peer ID
 func PubKeyToID(pubKey crypto.PubKey) ID {
-	// TODO: maybe change the way to get type of key
-	// so that we can put lpKey in package libp2p
-	if pk, ok := pubKey.(lpPubKey); ok {
-		peerID, _ := libp2p_peer.IDFromPublicKey(pk.K)
-		return LpID2ID(peerID)
+	if _, ok := pubKey.(libp2p.PubKey); ok {
+		return libp2p.PubKeyToID(pubKey)
 	} else {
-		return ID(hex.EncodeToString(pubKey.Address()))
+		return pubKeyToID(pubKey)
 	}
+}
+
+// pubKeyToID returns the ID corresponding to the given PubKey for original P2P.
+// It's the hex-encoding of the pubKey.Address().
+func pubKeyToID(pubKey crypto.PubKey) ID {
+	return ID(hex.EncodeToString(pubKey.Address()))
 }
 
 // LoadOrGenNodeKey attempts to load the NodeKey from the given filePath.

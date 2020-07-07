@@ -8,14 +8,16 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	libp2pPeer "github.com/libp2p/go-libp2p-core/peer"
-	"github.com/multiformats/go-multiaddr"
 	"net"
 	"strconv"
 	"strings"
 	"time"
 
+	lppeer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
+
+	"github.com/bdware/tendermint/p2p/libp2p"
 )
 
 // NetAddress defines information about a peer on the network
@@ -256,11 +258,11 @@ func (na *NetAddress) Multiaddr() multiaddr.Multiaddr {
 	return ma
 }
 
-func (na *NetAddress) LpAddrInfo() libp2pPeer.AddrInfo {
+func (na *NetAddress) LpAddrInfo() lppeer.AddrInfo {
 	maddr := na.Multiaddr()
-	return libp2pPeer.AddrInfo{
+	return lppeer.AddrInfo{
 		Addrs: []multiaddr.Multiaddr{maddr},
-		ID:    ID2lpID(na.ID),
+		ID:    libp2p.ID2lpID(na.ID),
 	}
 }
 

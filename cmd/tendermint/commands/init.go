@@ -10,6 +10,7 @@ import (
 	tmos "github.com/bdware/tendermint/libs/os"
 	tmrand "github.com/bdware/tendermint/libs/rand"
 	"github.com/bdware/tendermint/p2p"
+	"github.com/bdware/tendermint/p2p/libp2p"
 	"github.com/bdware/tendermint/privval"
 	"github.com/bdware/tendermint/types"
 	tmtime "github.com/bdware/tendermint/types/time"
@@ -51,7 +52,7 @@ func initFilesWithConfig(config *cfg.Config) error {
 				return err
 			}
 		} else {
-			if _, err := p2p.LoadOrGenLpNodeKey(nodeKeyFile); err != nil {
+			if _, err := libp2p.LoadOrGenLpNodeKey(nodeKeyFile); err != nil {
 				return err
 			}
 		}

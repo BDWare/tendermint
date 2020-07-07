@@ -641,7 +641,7 @@ func createAddrBookAndSetOnSwitch(config *cfg.Config, sw *p2p.Switch,
 		}
 	} else {
 		for _, addr := range sw.Host().Addrs() {
-			addrBook.AddOurAddress(p2p.Multiaddr2NetAddr(sw.Host().ID(), addr))
+			addrBook.AddOurAddress(libp2p.Multiaddr2NetAddr(sw.Host().ID(), addr))
 		}
 	}
 
@@ -688,7 +688,7 @@ func NewNode(config *cfg.Config,
 		config.P2P.PexReactor = false
 		// The parameter nodeKey is useless, overwrite it with libp2p private key
 		libp2pID = host.ID()
-		nodeKey = p2p.GetNodeKeyFromLpPrivKey(host.Peerstore().PrivKey(libp2pID))
+		nodeKey = libp2p.GetNodeKeyFromLpPrivKey(host.Peerstore().PrivKey(libp2pID))
 	}
 
 	blockStore, stateDB, err := initDBs(config, dbProvider)
@@ -1306,7 +1306,7 @@ func makeNodeInfo(
 	// don't use config when use libp2p
 	// 0.0.0.0 ? The first multiAddr may be invalid, such as 127.0.0.1
 	if config.P2P.Libp2p {
-		nodeInfo.ListenAddr = p2p.Multiaddr2DialString(host.Addrs()[0])
+		nodeInfo.ListenAddr = libp2p.Multiaddr2DialString(host.Addrs()[0])
 	}
 
 	err := nodeInfo.Validate()

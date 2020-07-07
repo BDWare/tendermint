@@ -3,12 +3,14 @@ package libp2p
 import (
 	"context"
 	"fmt"
-	"github.com/bdware/tendermint/p2p"
+	"time"
+
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
-	libp2pPeer "github.com/libp2p/go-libp2p-core/peer"
+	lppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
-	"time"
+
+	"github.com/bdware/tendermint/p2p"
 )
 
 const (
@@ -104,7 +106,6 @@ type LpTransport struct {
 var _ p2p.Transport = (*LpTransport)(nil)
 var _ p2p.TransportLifecycle = (*LpTransport)(nil)
 
-
 // NewLpTransport returns a tcp connected multiplexed peer.
 func NewLpTransport(nodeInfo p2p.NodeInfo, nodeKey p2p.NodeKey, host host.Host) *LpTransport {
 	mt := &LpTransport{
@@ -136,7 +137,7 @@ func NewLpTransport(nodeInfo p2p.NodeInfo, nodeKey p2p.NodeKey, host host.Host) 
 		}
 		ma := s.Conn().RemoteMultiaddr()
 		select {
-		case mt.acceptc <- accept{nodeInfo: nodeInfo, netAddr: p2p.Multiaddr2NetAddr(prID, ma), s: s, outbound: false}:
+		case mt.acceptc <- accept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma), s: s, outbound: false}:
 
 		case <-mt.closec:
 
@@ -183,7 +184,7 @@ func (n2 *notif) Connected(n network.Network, c network.Conn) {
 			ma := c.RemoteMultiaddr()
 
 			select {
-			case mt.acceptc <- accept{nodeInfo: nodeInfo, netAddr: p2p.Multiaddr2NetAddr(prID, ma), s: s, outbound: true}:
+			case mt.acceptc <- accept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma), s: s, outbound: true}:
 
 			case <-mt.closec:
 
@@ -363,8 +364,8 @@ func (mt *LpTransport) shakehand(s network.Stream) (p2p.NodeInfo, error) {
 	if err := peerNodeInfo.Validate(); err != nil {
 		return nil, err
 	}
-	lpID, _ := libp2pPeer.IDFromPublicKey(s.Conn().RemotePublicKey())
-	connID := p2p.LpID2ID(lpID)
+	lpID, _ := lppeer.IDFromPublicKey(s.Conn().RemotePublicKey())
+	connID := LpID2ID(lpID)
 	// Ensure connection key matches self reported key.
 	if connID != peerNodeInfo.ID() {
 		return nil, fmt.Errorf(

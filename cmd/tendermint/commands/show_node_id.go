@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bdware/tendermint/p2p"
+	"github.com/bdware/tendermint/p2p/libp2p"
 )
 
 // ShowNodeIDCmd dumps node's ID to the standard output.
@@ -23,7 +24,7 @@ func showNodeID(cmd *cobra.Command, args []string) error {
 	if !config.P2P.Libp2p {
 		nodeKey, err = p2p.LoadNodeKey(config.NodeKeyFile())
 	} else {
-		nodeKey, err = p2p.LoadLpNodeKey(config.NodeKeyFile())
+		nodeKey, err = libp2p.LoadLpNodeKey(config.NodeKeyFile())
 	}
 	if err != nil {
 		return err
