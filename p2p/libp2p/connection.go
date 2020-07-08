@@ -3,16 +3,18 @@ package libp2p
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/bdware/tendermint/libs/log"
-	"github.com/bdware/tendermint/libs/service"
-	mconn "github.com/bdware/tendermint/p2p/conn"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/pkg/errors"
 	"io"
 	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/pkg/errors"
+
+	"github.com/bdware/tendermint/libs/log"
+	"github.com/bdware/tendermint/libs/service"
+	mconn "github.com/bdware/tendermint/p2p/conn"
 )
 
 type receiveCbFunc func(chID byte, msgBytes []byte)
@@ -153,13 +155,13 @@ func (c *Connection) OnStop() {
 }
 
 func (c *Connection) String() string {
-	return fmt.Sprintf("Conn{%v}", c.s.Conn().RemoteMultiaddr())
+	return fmt.Sprintf("MConn{%v}", c.s.Conn().RemoteMultiaddr())
 }
 
 // Catch panics, usually caused by remote disconnects.
 func (c *Connection) _recover() {
 	if r := recover(); r != nil {
-		c.Logger.Error("Connection panicked", "err", r, "stack", string(debug.Stack()))
+		c.Logger.Error("MConnection panicked", "err", r, "stack", string(debug.Stack()))
 		c.stopForError(errors.Errorf("recovered from panic: %v", r))
 	}
 }

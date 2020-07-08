@@ -27,16 +27,15 @@ type peer struct {
 	persistent bool
 	socketAddr *p2p.NetAddress
 
+	// our local peer host to send msg to this peer
+	host host.Host
+	conn *Connection
+
 	// peer's node info and the channel it knows about
 	// channels = nodeInfo.Channels
 	// cached to avoid copying nodeInfo in hasChannel
 	nodeInfo p2p.NodeInfo
 	channels []byte
-
-	conn *Connection
-
-	// our local peer host to send msg to this peer
-	host host.Host
 
 	// User data
 	Data *cmap.CMap
@@ -48,18 +47,18 @@ type peer struct {
 type PeerOption func(*peer)
 
 func newPeer(
+	host host.Host,
 	s network.Stream,
 	nodeInfo p2p.NodeInfo,
 	reactorsByCh map[byte]p2p.Reactor,
-	host host.Host,
 	chDescs []*tmconn.ChannelDescriptor,
 	onPeerError func(p2p.Peer, interface{}),
 	options ...PeerOption,
 ) *peer {
 	p := &peer{
+		host:          host,
 		nodeInfo:      nodeInfo,
 		channels:      nodeInfo.(p2p.DefaultNodeInfo).Channels, // TODO
-		host:          host,
 		Data:          cmap.NewCMap(),
 		metricsTicker: time.NewTicker(p2p.MetricsTickerDuration),
 		metrics:       p2p.NopMetrics(),
