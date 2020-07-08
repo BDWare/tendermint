@@ -11,4 +11,5 @@ var cdc *amino.Codec = amino.NewCodec()
 func init() {
 	cryptoamino.RegisterAmino(cdc)
 	RegisterPacket(cdc)
+	RegisterLibp2pPacket(cdc)
 }
