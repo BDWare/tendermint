@@ -6,6 +6,7 @@ import (
 	crand "crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
+	"github.com/bdware/tendermint/crypto/libp2p"
 	"io"
 	"math"
 	"net"
@@ -160,7 +161,9 @@ func MakeSecretConnection(conn io.ReadWriteCloser, locPrivKey crypto.PrivKey) (*
 
 	remPubKey, remSignature := authSigMsg.Key, authSigMsg.Sig
 	if _, ok := remPubKey.(ed25519.PubKeyEd25519); !ok {
-		return nil, errors.Errorf("expected ed25519 pubkey, got %T", remPubKey)
+		if _, ok := remPubKey.(libp2p.PubKey); !ok {
+			return nil, errors.Errorf("expected ed25519 pubkey or libp2p pubkey, got %T", remPubKey)
+		}
 	}
 	if !remPubKey.VerifyBytes(challenge[:], remSignature) {
 		return nil, errors.New("challenge verification failed")

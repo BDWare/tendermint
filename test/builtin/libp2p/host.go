@@ -7,8 +7,6 @@ package libp2p
 import (
 	"context"
 	"io/ioutil"
-	"strconv"
-	"strings"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
@@ -20,7 +18,6 @@ import (
 	tls "github.com/libp2p/go-libp2p-tls"
 	yamux "github.com/libp2p/go-libp2p-yamux"
 	"github.com/libp2p/go-tcp-transport"
-	"github.com/multiformats/go-multiaddr"
 
 	cfg "github.com/bdware/tendermint/config"
 	"github.com/bdware/tendermint/p2p"
@@ -58,7 +55,7 @@ func NewP2PHost(ctx context.Context, cfg *cfg.Config) (host.Host, error) {
 			//"/ip4/0.0.0.0/tcp/0/ws",
 		)
 	} else {
-		listenAddrs = libp2p.ListenAddrs(multiaddrFromNetAddress(tdmAddr))
+		listenAddrs = libp2p.ListenAddrs(p2p.MultiaddrFromNetAddress(*tdmAddr))
 	}
 
 	var dht *kaddht.IpfsDHT
@@ -86,16 +83,3 @@ func NewP2PHost(ctx context.Context, cfg *cfg.Config) (host.Host, error) {
 	return host, nil
 }
 
-func multiaddrFromNetAddress(na *p2p.NetAddress) multiaddr.Multiaddr {
-	var prefix string
-	ipStr := na.IP.String()
-	if strings.Count(ipStr, ":") < 2 {
-		prefix = "/ip4/"
-	} else {
-		prefix = "/ip6/"
-	}
-	// tcp or udp or others?
-	str := prefix + ipStr + "/tcp/" + strconv.FormatUint(uint64(na.Port), 10)
-	ma, _ := multiaddr.NewMultiaddr(str)
-	return ma
-}

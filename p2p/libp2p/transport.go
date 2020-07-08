@@ -7,15 +7,18 @@ import (
 
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
-	lppeer "github.com/libp2p/go-libp2p-core/peer"
+	swarm "github.com/libp2p/go-libp2p-swarm"
 	"github.com/multiformats/go-multiaddr"
 
+	"github.com/bdware/tendermint/crypto"
+	"github.com/bdware/tendermint/libs/cmap"
 	"github.com/bdware/tendermint/p2p"
+	"github.com/bdware/tendermint/p2p/conn"
 	"github.com/bdware/tendermint/p2p/libp2p/util"
 )
 
 const (
-	ShakehandProtocol = "tdm-shakehand"
+	ShakehandProtocol = "tdm-handshake"
 )
 
 // ConnFilterFunc to be implemented by filter hooks after a new connection has
@@ -74,10 +77,9 @@ const (
 
 type accept struct {
 	netAddr  *p2p.NetAddress
-	s        network.Stream
+	//s        net.Conn
 	nodeInfo p2p.NodeInfo
 	err      error
-	outbound bool
 }
 
 // LpTransport accepts and dials tcp connections and upgrades them to
@@ -99,8 +101,8 @@ type LpTransport struct {
 	nodeInfo         p2p.NodeInfo
 	nodeKey          p2p.NodeKey
 
-	//wait4Peer *cmap.CMap
-	host host.Host
+	wait4Peer *cmap.CMap
+	host      host.Host
 }
 
 // Test multiplexTransport for interface completeness.
@@ -117,8 +119,8 @@ func NewLpTransport(nodeInfo p2p.NodeInfo, nodeKey p2p.NodeKey, host host.Host) 
 		handshakeTimeout: p2p.DefaultHandshakeTimeout,
 		nodeInfo:         nodeInfo,
 		nodeKey:          nodeKey,
+		wait4Peer:        cmap.NewCMap(),
 		host:             host,
-		//wait4Peer:        cmap.NewCMap(),
 	}
 
 	// set our address (used in switch)
@@ -131,18 +133,32 @@ func NewLpTransport(nodeInfo p2p.NodeInfo, nodeKey p2p.NodeKey, host host.Host) 
 	mt.host.Network().Notify(&notif{mt: mt})
 	mt.host.SetStreamHandler(ShakehandProtocol, func(s network.Stream) {
 		prID := s.Conn().RemotePeer()
-		nodeInfo, err := mt.shakehand(s)
+		na := p2p.NewNetAddressLibp2pIDMultiaddr(prID, s.Conn().RemoteMultiaddr())
+		nodeInfo, err := mt.dohandshake(s, nil)
 		if err != nil {
-			//mt.host.Network().ClosePeer(prID)
+			// If Close() has been called, silently exit.
+			select {
+			case _, ok := <-mt.closec:
+				if !ok {
+					return
+				}
+			default:
+				// Transport is not closed
+			}
+
+			mt.acceptc <- accept{netAddr: na, err: err}
 			return
 		}
-		ma := s.Conn().RemoteMultiaddr()
+
 		select {
-		case mt.acceptc <- accept{nodeInfo: nodeInfo, netAddr: p2p.NewNetAddressLibp2pIDMultiaddr(prID, ma), s: s, outbound: false}:
+		case mt.acceptc <- accept{netAddr: na, nodeInfo: nodeInfo}:
 
 		case <-mt.closec:
 
 		}
+
+		// don't need shakehand stream any longer
+		s.Close()
 	})
 	return mt
 }
@@ -167,29 +183,44 @@ func (n2 *notif) ListenClose(n network.Network, m multiaddr.Multiaddr) {
 func (n2 *notif) Connected(n network.Network, c network.Conn) {
 	// If don't run it in a go routine, Connect in Dial may not return directly and then timeout.
 	go func() {
-		mt := n2.mt
-		prID := c.RemotePeer()
 		if c.Stat().Direction == network.DirOutbound {
+			mt := n2.mt
+			prID := c.RemotePeer()
+			ID := util.Libp2pID2ID(prID)
+			ma := c.RemoteMultiaddr()
+			na := p2p.NewNetAddressLibp2pIDMultiaddr(prID, ma)
+
+			// whether we are dialing this peer actively?
+			dialing := mt.wait4Peer.Has(string(ID))
+
 			// the peer that starts the connection also inits the handshake
 			s, err := mt.host.NewStream(context.TODO(), prID, ShakehandProtocol)
 			if err != nil {
-				//mt.host.Network().ClosePeer(prID)
+				// Close Conn so that we may connect to this peer later
+				c.Close()
+				if dialing {
+					mt.wait4Peer.Get(string(ID)).(chan accept) <- accept{netAddr: na, err: err}
+				}
 				return
 			}
 
-			nodeInfo, err := mt.shakehand(s)
+			nodeInfo, err := mt.dohandshake(s, nil)
 			if err != nil {
-				//mt.host.Network().ClosePeer(prID)
+				if dialing {
+					mt.wait4Peer.Get(string(ID)).(chan accept) <- accept{netAddr: na, err: err}
+				}
 				return
 			}
-			ma := c.RemoteMultiaddr()
+			// we don't need this shakehand stream any longer
+			s.Close()
 
-			select {
-			case mt.acceptc <- accept{nodeInfo: nodeInfo, netAddr: p2p.NewNetAddressLibp2pIDMultiaddr(prID, ma), s: s, outbound: true}:
-
-			case <-mt.closec:
-
+			if dialing {
+				mt.wait4Peer.Get(string(ID)).(chan accept) <- accept{netAddr: na, nodeInfo: nodeInfo}
+				return
 			}
+
+			// TODO: add outbound peer of dht discovery to switch
+
 		}
 	}()
 }
@@ -208,55 +239,6 @@ func (n2 *notif) ClosedStream(n network.Network, stream network.Stream) {
 	return
 }
 
-//func (mt *LpTransport) handleConn() {
-//	sub, err := mt.host.EventBus().Subscribe(new(event.EvtPeerConnectednessChanged))
-//	if err != nil {
-//
-//	}
-//	for evt := range sub.Out() {
-//		e, ok := evt.(event.EvtPeerConnectednessChanged)
-//		if !ok {
-//			continue
-//		}
-//		mt.handleConnRoutine(e)
-//	}
-//
-//}
-//
-//func (mt *LpTransport) handleConnRoutine(e event.EvtPeerConnectednessChanged) {
-//	prID := e.Peer
-//	id := lpID2ID(prID)
-//	if e.Connectedness == network.Connected {
-//		c := mt.host.Network().ConnsToPeer(prID)[0]
-//		if c.Stat().Direction == network.DirOutbound {
-//			// the peer that starts the connection also inits the handshake
-//			s, err := mt.host.NewStream(context.TODO(), prID, ShakehandProtocol)
-//			if err != nil {
-//				//mt.host.Network().ClosePeer(prID)
-//				return
-//			}
-//
-//			nodeInfo, err := mt.shakehand(s)
-//			if err != nil {
-//				//mt.host.Network().ClosePeer(prID)
-//				return
-//			}
-//			ma := c.RemoteMultiaddr()
-//			if mt.wait4Peer.Has(string(id)) {
-//				ch := mt.wait4Peer.Get(string(id)).(chan accept)
-//				ch <- accept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma)}
-//			} else {
-//				select {
-//				case mt.acceptc <- accept{nodeInfo: nodeInfo, netAddr: Multiaddr2NetAddr(prID, ma)}:
-//
-//				case <-mt.closec:
-//
-//				}
-//			}
-//		}
-//	}
-//}
-
 // Accept implements Transport.
 func (mt *LpTransport) Accept(cfg p2p.PeerConfig) (p2p.Peer, error) {
 	select {
@@ -267,9 +249,9 @@ func (mt *LpTransport) Accept(cfg p2p.PeerConfig) (p2p.Peer, error) {
 			return nil, a.err
 		}
 
-		cfg.Outbound = a.outbound
+		cfg.Outbound = false
 
-		return mt.wrapLpPeer(a.nodeInfo, cfg, a.netAddr, a.s), nil
+		return mt.wrapLpPeer(a.nodeInfo, cfg, a.netAddr), nil
 	case <-mt.closec:
 		return nil, p2p.ErrTransportClosed{}
 	}
@@ -280,32 +262,38 @@ func (mt *LpTransport) Dial(
 	addr p2p.NetAddress,
 	cfg p2p.PeerConfig,
 ) (p2p.Peer, error) {
-	//ch := make(chan accept)
-	//mt.wait4Peer.Set(string(addr.ID), ch)
-	//defer mt.wait4Peer.Delete(string(addr.ID))
-	//
-	//ctx, _ := context.WithTimeout(context.Background(), mt.dialTimeout)
-	//ai := addr.LpAddrInfo()
-	//err := mt.host.Connect(ctx, ai)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//a := <-ch // block until
-	//ed event is detected
-	//cfg.outbound = true
-	//p := mt.wrapLpPeer(a.nodeInfo, cfg, &addr)
-	//return p, nil
-	return nil, fmt.Errorf("shouldn't be called")
+	ch := make(chan accept)
+	mt.wait4Peer.Set(string(addr.ID), ch)
+	defer mt.wait4Peer.Delete(string(addr.ID))
+
+	ctx, _ := context.WithTimeout(context.Background(), mt.dialTimeout)
+	ai := p2p.LpAddrInfoFromNetAddress(addr)
+	err := mt.host.Connect(ctx, ai)
+	if err != nil {
+		if err == swarm.ErrDialToSelf {
+			return nil, p2p.NewIsSelfErrRejected(addr, err, addr.ID)
+		}
+		return nil, err
+	}
+
+	a := <-ch // block until connected event is detected
+	if a.err != nil {
+		return nil, a.err
+	}
+
+	cfg.Outbound = true
+	p := mt.wrapLpPeer(a.nodeInfo, cfg, &addr)
+	return p, nil
 }
 
 // Close implements transportLifecycle.
 func (mt *LpTransport) Close() error {
 	close(mt.closec)
 
-	if mt.host != nil {
-		mt.host.Close()
-	}
+	// closing of host should be done in Node.OnStop
+	//if mt.host != nil {
+	//	mt.host.Close()
+	//}
 
 	return nil
 }
@@ -317,7 +305,7 @@ func (mt *LpTransport) Listen(addr p2p.NetAddress) (err error) {
 	//mt.netAddr = addr
 	//mt.host.SetStreamHandler(ShakehandProtocol, func(s network.Stream) {
 	//	prID := s.Conn().LocalPeer()
-	//	nodeInfo, err := mt.shakehand(s)
+	//	nodeInfo, err := mt.handshake(s)
 	//	if err != nil {
 	//		mt.host.Network().ClosePeer(prID)
 	//	}
@@ -332,13 +320,21 @@ func (mt *LpTransport) Listen(addr p2p.NetAddress) (err error) {
 	return fmt.Errorf("should not be called")
 }
 
-// shakehand exchanges and checks NodeInfo
-func (mt *LpTransport) shakehand(s network.Stream) (p2p.NodeInfo, error) {
+// handshake exchanges NodeInfo
+func handshake(
+	s network.Stream,
+	timeout time.Duration,
+	nodeInfo p2p.NodeInfo,
+) (p2p.NodeInfo, error) {
+	if err := s.SetDeadline(time.Now().Add(timeout)); err != nil {
+		return nil, err
+	}
+
 	var (
 		errc = make(chan error, 2)
 
 		peerNodeInfo p2p.DefaultNodeInfo
-		ourNodeInfo  = mt.nodeInfo.(p2p.DefaultNodeInfo)
+		ourNodeInfo  = nodeInfo.(p2p.DefaultNodeInfo)
 	)
 
 	go func(errc chan<- error, s network.Stream) {
@@ -362,30 +358,7 @@ func (mt *LpTransport) shakehand(s network.Stream) (p2p.NodeInfo, error) {
 		}
 	}
 
-	if err := peerNodeInfo.Validate(); err != nil {
-		return nil, err
-	}
-	lpID, _ := lppeer.IDFromPublicKey(s.Conn().RemotePublicKey())
-	connID := util.Libp2pID2ID(lpID)
-	// Ensure connection key matches self reported key.
-	if connID != peerNodeInfo.ID() {
-		return nil, fmt.Errorf(
-			"conn.ID (%v) NodeInfo.ID (%v) mismatch",
-			connID,
-			peerNodeInfo.ID(),
-		)
-	}
-
-	// Reject self.
-	if mt.nodeInfo.ID() == peerNodeInfo.ID() {
-		return nil, fmt.Errorf("reject self")
-	}
-
-	if err := mt.nodeInfo.CompatibleWith(peerNodeInfo); err != nil {
-		return nil, fmt.Errorf("not compatible")
-	}
-
-	return peerNodeInfo, nil
+	return peerNodeInfo, s.SetDeadline(time.Time{})
 }
 
 // Cleanup removes the given address from the connections set and
@@ -394,11 +367,89 @@ func (mt *LpTransport) Cleanup(p p2p.Peer) {
 	_ = p.CloseConn()
 }
 
+func (mt *LpTransport) cleanup(s network.Stream) error {
+	return s.Conn().Close()
+}
+
+func (mt *LpTransport) dohandshake(
+	s network.Stream,
+	dialedAddr *p2p.NetAddress,
+) (nodeInfo p2p.NodeInfo, err error) {
+	defer func() {
+		if err != nil {
+			_ = mt.cleanup(s)
+		}
+	}()
+
+	prID := s.Conn().RemotePeer()
+	ID := util.Libp2pID2ID(prID)
+	ma := s.Conn().RemoteMultiaddr()
+	na := p2p.NewNetAddressLibp2pIDMultiaddr(prID, ma)
+
+	//secretConn, err = upgradeSecretConn(s, mt.handshakeTimeout, mt.nodeKey.PrivKey)
+	//if err != nil {
+	//	err = fmt.Errorf("secret conn failed: %v", err)
+	//	return nil, nil, p2p.NewIsAuthFailureErrRejected(*na, err, ID)
+	//}
+
+	// For outgoing conns, ensure connection key matches dialed key.
+	connID := util.Libp2pID2ID(s.Conn().RemotePeer())
+	if dialedAddr != nil {
+		if dialedID := dialedAddr.ID; connID != dialedID {
+			err = fmt.Errorf("conn.ID (%v) dialed ID (%v) mismatch", connID, dialedID)
+			return nil, p2p.NewIsAuthFailureErrRejected(*na, err, ID)
+		}
+	}
+
+	nodeInfo, err = handshake(s, mt.handshakeTimeout, mt.nodeInfo)
+	if err != nil {
+		err = fmt.Errorf("handshake failed: %v", err)
+		return nil, p2p.NewIsAuthFailureErrRejected(*na, err, ID)
+	}
+
+	if err := nodeInfo.Validate(); err != nil {
+		return nil, p2p.NewNodeInfoInvalidErrRejected(*na, err, ID)
+	}
+
+	// Ensure connection key matches self reported key.
+	if connID != nodeInfo.ID() {
+		err = fmt.Errorf("conn.ID (%v) NodeInfo.ID (%v) mismatch", connID, nodeInfo.ID())
+		return nil, p2p.NewIsAuthFailureErrRejected(*na, err, ID)
+	}
+
+	// Reject self.
+	if mt.nodeInfo.ID() == nodeInfo.ID() {
+		return nil, p2p.NewIsSelfErrRejected(*na, err, ID)
+	}
+
+	if err := mt.nodeInfo.CompatibleWith(nodeInfo); err != nil {
+		return nil, p2p.NewIncompatibleErrRejected(*na, err, ID)
+	}
+
+	return nodeInfo, nil
+}
+
+func upgradeSecretConn(
+	s network.Stream,
+	timeout time.Duration,
+	privKey crypto.PrivKey,
+) (*conn.SecretConnection, error) {
+	if err := s.SetDeadline(time.Now().Add(timeout)); err != nil {
+		return nil, err
+	}
+
+	sc, err := conn.MakeSecretConnection(s, privKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return sc, sc.SetDeadline(time.Time{})
+}
+
 func (mt *LpTransport) wrapLpPeer(
 	ni p2p.NodeInfo,
 	cfg p2p.PeerConfig,
 	socketAddr *p2p.NetAddress,
-	s network.Stream,
 ) p2p.Peer {
 
 	persistent := false
@@ -415,7 +466,6 @@ func (mt *LpTransport) wrapLpPeer(
 
 	p := newPeer(
 		mt.host,
-		s,
 		ni,
 		cfg.ReactorsByCh,
 		cfg.ChDescs,

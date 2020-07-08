@@ -207,6 +207,8 @@ type Node struct {
 	txIndexer        txindex.TxIndexer
 	indexerService   *txindex.IndexerService
 	prometheusSrv    *http.Server
+
+	host host.Host
 }
 
 func initDBs(config *cfg.Config, dbProvider DBProvider) (blockStore *store.BlockStore, stateDB dbm.DB, err error) {
@@ -874,6 +876,7 @@ func NewNode(config *cfg.Config,
 		txIndexer:        txIndexer,
 		indexerService:   indexerService,
 		eventBus:         eventBus,
+		host: 			  host,
 	}
 	node.BaseService = *service.NewBaseService(logger, "Node", node)
 
@@ -987,6 +990,12 @@ func (n *Node) OnStop() {
 		if err := n.prometheusSrv.Shutdown(context.Background()); err != nil {
 			// Error from closing listeners, or context timeout:
 			n.Logger.Error("Prometheus HTTP server Shutdown", "err", err)
+		}
+	}
+
+	if n.host != nil {
+		if err := n.host.Close(); err != nil {
+			n.Logger.Error("Error closing host", "err", err)
 		}
 	}
 }

@@ -2,11 +2,11 @@ package libp2p
 
 import (
 	"fmt"
+	"github.com/libp2p/go-libp2p-core/network"
 	"net"
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/network"
 
 	"github.com/bdware/tendermint/libs/cmap"
 	"github.com/bdware/tendermint/libs/log"
@@ -29,7 +29,7 @@ type peer struct {
 
 	// our local peer host to send msg to this peer
 	host host.Host
-	conn *Connection
+	conn *tmconn.Libp2pMConnection
 
 	// peer's node info and the channel it knows about
 	// channels = nodeInfo.Channels
@@ -48,7 +48,6 @@ type PeerOption func(*peer)
 
 func newPeer(
 	host host.Host,
-	s network.Stream,
 	nodeInfo p2p.NodeInfo,
 	reactorsByCh map[byte]p2p.Reactor,
 	chDescs []*tmconn.ChannelDescriptor,
@@ -64,8 +63,8 @@ func newPeer(
 		metrics:       p2p.NopMetrics(),
 	}
 
-	p.conn = createConnection(
-		s,
+	p.conn = createLpMConnection(
+		host,
 		p,
 		reactorsByCh,
 		chDescs,
@@ -241,8 +240,6 @@ func (p *peer) hasChannel(chID byte) bool {
 
 // CloseConn closes libp2p connection
 func (p *peer) CloseConn() error {
-	// do nothing now
-	// TODO: check if correct or not
 	return p.host.Network().ClosePeer(util.ID2Libp2pID(p.ID()))
 }
 
@@ -322,6 +319,43 @@ func createConnection(
 
 	return NewConnection(
 		s,
+		chDescs,
+		onReceive,
+		onError,
+	)
+}
+
+func createLpMConnection(
+	host host.Host,
+	p *peer,
+	reactorsByCh map[byte]p2p.Reactor,
+	chDescs []*tmconn.ChannelDescriptor,
+	onPeerError func(p2p.Peer, interface{}),
+) *tmconn.Libp2pMConnection{
+
+	onReceive := func(chID byte, msgBytes []byte) {
+		reactor := reactorsByCh[chID]
+		if reactor == nil {
+			// Note that its ok to panic here as it's caught in the conn._recover,
+			// which does onPeerError.
+			panic(fmt.Sprintf("Unknown channel %X", chID))
+		}
+		labels := []string{
+			"peer_id", string(p.ID()),
+			"chID", fmt.Sprintf("%#x", chID),
+		}
+		p.metrics.PeerReceiveBytesTotal.With(labels...).Add(float64(len(msgBytes)))
+		reactor.Receive(chID, p, msgBytes)
+	}
+
+	onError := func(r interface{}) {
+		onPeerError(p, r)
+	}
+
+	return tmconn.NewLibp2pMConnection(
+		"",
+		host,
+		util.ID2Libp2pID(p.ID()),
 		chDescs,
 		onReceive,
 		onError,

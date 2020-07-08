@@ -411,3 +411,25 @@ func validateID(id ID) error {
 	}
 	return nil
 }
+
+func MultiaddrFromNetAddress(na NetAddress) multiaddr.Multiaddr {
+	var prefix string
+	ipStr := na.IP.String()
+	if strings.Count(ipStr, ":") < 2 {
+		prefix = "/ip4/"
+	} else {
+		prefix = "/ip6/"
+	}
+	// tcp or udp or others?
+	str := prefix + ipStr + "/tcp/" + strconv.FormatUint(uint64(na.Port), 10)
+	ma, _ := multiaddr.NewMultiaddr(str)
+	return ma
+}
+
+func LpAddrInfoFromNetAddress(na NetAddress) lppeer.AddrInfo {
+	maddr :=  MultiaddrFromNetAddress(na)
+	return lppeer.AddrInfo{
+		Addrs: []multiaddr.Multiaddr{maddr},
+		ID:    lputil.ID2Libp2pID(na.ID),
+	}
+}

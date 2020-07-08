@@ -7,6 +7,7 @@ import (
 	"github.com/bdware/tendermint/crypto/tmhash"
 )
 
+// TODO: If use these keys in tendermint, must register these and some libp2p keys to amino first.
 type PrivKey struct {
 	K lpcrypto.PrivKey
 }

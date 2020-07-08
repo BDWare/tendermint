@@ -27,6 +27,42 @@ type ErrRejected struct {
 	isSelf            bool
 }
 
+func NewIsSelfErrRejected(addr NetAddress, err error, id ID) ErrRejected {
+	return ErrRejected{
+		addr:   addr,
+		err:    err,
+		id:     id,
+		isSelf: true,
+	}
+}
+
+func NewIsAuthFailureErrRejected(addr NetAddress, err error, id ID) ErrRejected {
+	return ErrRejected{
+		addr:          addr,
+		err:           err,
+		id:            id,
+		isAuthFailure: true,
+	}
+}
+
+func NewNodeInfoInvalidErrRejected(addr NetAddress, err error, id ID) ErrRejected {
+	return ErrRejected{
+		addr:              addr,
+		err:               err,
+		id:                id,
+		isNodeInfoInvalid: true,
+	}
+}
+
+func NewIncompatibleErrRejected(addr NetAddress, err error, id ID) ErrRejected {
+	return ErrRejected{
+		addr:           addr,
+		err:            err,
+		id:             id,
+		isIncompatible: true,
+	}
+}
+
 // Addr returns the NetAddress for the rejected Peer.
 func (e ErrRejected) Addr() NetAddress {
 	return e.addr
