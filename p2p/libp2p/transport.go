@@ -414,10 +414,10 @@ func (mt *LpTransport) wrapLpPeer(
 	}
 
 	p := newPeer(
+		mt.host,
 		s,
 		ni,
 		cfg.ReactorsByCh,
-		mt.host,
 		cfg.ChDescs,
 		cfg.OnPeerError,
 		PeerMetrics(cfg.Metrics),

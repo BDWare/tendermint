@@ -12,6 +12,7 @@ import (
 
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	"github.com/pkg/errors"
 	"github.com/tendermint/go-amino"
@@ -20,8 +21,6 @@ import (
 	tmmath "github.com/bdware/tendermint/libs/math"
 	"github.com/bdware/tendermint/libs/service"
 	"github.com/bdware/tendermint/libs/timer"
-	"github.com/bdware/tendermint/p2p"
-	"github.com/bdware/tendermint/p2p/libp2p/util"
 )
 
 const pingProtocolID = "ping"
@@ -36,7 +35,7 @@ type Libp2pMConnection struct {
 
 	protocolPrefix string
 	host           host.Host
-	peer           p2p.Peer
+	peerID         peer.ID
 	channels       []*Libp2pChannel
 	channelsIdx    map[byte]*Libp2pChannel
 	// Stream for the ping protocol.
@@ -53,7 +52,7 @@ type Libp2pMConnection struct {
 func NewLibp2pMConnection(
 	protocolPrefix string,
 	host host.Host,
-	peer p2p.Peer,
+	peerID peer.ID,
 	chDescs []*ChannelDescriptor,
 	onReceive receiveCbFunc,
 	onError errorCbFunc,
@@ -61,7 +60,7 @@ func NewLibp2pMConnection(
 	return NewLibp2pMConnectionWithConfig(
 		protocolPrefix,
 		host,
-		peer,
+		peerID,
 		chDescs,
 		onReceive,
 		onError,
@@ -72,7 +71,7 @@ func NewLibp2pMConnection(
 func NewLibp2pMConnectionWithConfig(
 	protocolPrefix string,
 	host host.Host,
-	peer p2p.Peer,
+	peerID peer.ID,
 	chDescs []*ChannelDescriptor,
 	onReceive receiveCbFunc,
 	onError errorCbFunc,
@@ -95,7 +94,7 @@ func NewLibp2pMConnectionWithConfig(
 		},
 		protocolPrefix: protocolPrefix,
 		host:           host,
-		peer:           peer,
+		peerID:         peerID,
 		streams:        map[byte]network.Stream{},
 		bufConnReaders: map[byte]*bufio.Reader{},
 		bufConnWriters: map[byte]*bufio.Writer{},
@@ -132,7 +131,6 @@ func (c *Libp2pMConnection) OnStart() error {
 		return err
 	}
 
-	lpID := util.ID2Libp2pID(c.peer.ID())
 	// 1 min timeout for all streams.
 	ctx, cncl := context.WithTimeout(context.Background(), 1*time.Minute)
 	go func() {
@@ -141,9 +139,9 @@ func (c *Libp2pMConnection) OnStart() error {
 	}()
 
 	// Create stream, bufio.Reader and bufio.Writer for the ping protocol.
-	s, err := c.host.NewStream(ctx, lpID, protocol.ID(c.protocolPrefix+pingProtocolID))
+	s, err := c.host.NewStream(ctx, c.peerID, protocol.ID(c.protocolPrefix+pingProtocolID))
 	if err != nil {
-		return fmt.Errorf("Failed to call host.NewStream to peer %v which should be already connected.", c.peer.RemoteAddr())
+		return fmt.Errorf("Failed to call host.NewStream to peer %v which should be already connected.", c.peerID)
 	}
 	c.stream = s
 	c.bufConnReader = bufio.NewReaderSize(s, minReadBufferSize)
@@ -152,9 +150,9 @@ func (c *Libp2pMConnection) OnStart() error {
 	// Create stream, bufio.Reader and bufio.Writer for each channel.
 	for _, ch := range c.channels {
 		chID := ch.desc.ID
-		s, err := c.host.NewStream(ctx, lpID, protocol.ID(c.protocolPrefix+string(chID)))
+		s, err := c.host.NewStream(ctx, c.peerID, protocol.ID(c.protocolPrefix+string(chID)))
 		if err != nil {
-			return fmt.Errorf("Failed to call host.NewStream to peer %v which should be already connected.", c.peer.RemoteAddr())
+			return fmt.Errorf("Failed to call host.NewStream to peer %v which should be already connected.", c.peerID)
 		}
 		c.streams[chID] = s
 		c.bufConnReaders[chID] = bufio.NewReaderSize(s, minReadBufferSize)
@@ -251,7 +249,7 @@ func (c *Libp2pMConnection) OnStop() {
 }
 
 func (c *Libp2pMConnection) String() string {
-	return fmt.Sprintf("MConn{%v}", c.peer.RemoteAddr())
+	return fmt.Sprintf("MConn{%v}", c.peerID)
 }
 
 func (c *Libp2pMConnection) flush() {
