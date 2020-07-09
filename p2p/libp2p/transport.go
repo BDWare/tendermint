@@ -10,10 +10,8 @@ import (
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	"github.com/multiformats/go-multiaddr"
 
-	"github.com/bdware/tendermint/crypto"
 	"github.com/bdware/tendermint/libs/cmap"
 	"github.com/bdware/tendermint/p2p"
-	"github.com/bdware/tendermint/p2p/conn"
 	"github.com/bdware/tendermint/p2p/libp2p/util"
 )
 
@@ -77,7 +75,6 @@ const (
 
 type accept struct {
 	netAddr  *p2p.NetAddress
-	//s        net.Conn
 	nodeInfo p2p.NodeInfo
 	err      error
 }
@@ -429,22 +426,22 @@ func (mt *LpTransport) dohandshake(
 	return nodeInfo, nil
 }
 
-func upgradeSecretConn(
-	s network.Stream,
-	timeout time.Duration,
-	privKey crypto.PrivKey,
-) (*conn.SecretConnection, error) {
-	if err := s.SetDeadline(time.Now().Add(timeout)); err != nil {
-		return nil, err
-	}
-
-	sc, err := conn.MakeSecretConnection(s, privKey)
-	if err != nil {
-		return nil, err
-	}
-
-	return sc, sc.SetDeadline(time.Time{})
-}
+//func upgradeSecretConn(
+//	s network.Stream,
+//	timeout time.Duration,
+//	privKey crypto.PrivKey,
+//) (*conn.SecretConnection, error) {
+//	if err := s.SetDeadline(time.Now().Add(timeout)); err != nil {
+//		return nil, err
+//	}
+//
+//	sc, err := conn.MakeSecretConnection(s, privKey)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	return sc, sc.SetDeadline(time.Time{})
+//}
 
 func (mt *LpTransport) wrapLpPeer(
 	ni p2p.NodeInfo,

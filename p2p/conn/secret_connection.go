@@ -6,7 +6,6 @@ import (
 	crand "crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
-	"github.com/bdware/tendermint/crypto/libp2p"
 	"io"
 	"math"
 	"net"
@@ -23,6 +22,7 @@ import (
 
 	"github.com/bdware/tendermint/crypto"
 	"github.com/bdware/tendermint/crypto/ed25519"
+	"github.com/bdware/tendermint/crypto/libp2p"
 	"github.com/bdware/tendermint/libs/async"
 )
 

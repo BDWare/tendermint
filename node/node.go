@@ -876,7 +876,8 @@ func NewNode(config *cfg.Config,
 		txIndexer:        txIndexer,
 		indexerService:   indexerService,
 		eventBus:         eventBus,
-		host: 			  host,
+
+		host:             host,
 	}
 	node.BaseService = *service.NewBaseService(logger, "Node", node)
 
