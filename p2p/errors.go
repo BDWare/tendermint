@@ -63,6 +63,15 @@ func NewIncompatibleErrRejected(addr NetAddress, err error, id ID) ErrRejected {
 	}
 }
 
+func NewIsDuplicateErrRejected(addr NetAddress, err error, id ID) ErrRejected {
+	return ErrRejected{
+		addr:        addr,
+		err:         err,
+		id:          id,
+		isDuplicate: true,
+	}
+}
+
 // Addr returns the NetAddress for the rejected Peer.
 func (e ErrRejected) Addr() NetAddress {
 	return e.addr

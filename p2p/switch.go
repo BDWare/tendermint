@@ -814,3 +814,40 @@ func (sw *Switch) addPeer(p Peer) error {
 
 	return nil
 }
+
+// ------------------------------------
+
+// Used by libp2p Transport to add outbound
+// peers which was connected by dht discovery.
+var _ PeerManager = (*Switch)(nil)
+
+func (sw *Switch) AddPeer(p Peer) {
+	if err := sw.addPeer(p); err != nil {
+		sw.transport.Cleanup(p)
+		if p.IsRunning() {
+			_ = p.Stop()
+		}
+	}
+}
+
+func (sw *Switch) GetPeer(peerID ID) Peer {
+	return sw.peers.Get(peerID)
+}
+
+func (sw *Switch) DefaultOutBoundPeerConfig() PeerConfig {
+	return PeerConfig{
+		ChDescs:      sw.chDescs,
+		OnPeerError:  sw.StopPeerForError,
+		ReactorsByCh: sw.reactorsByCh,
+		Metrics:      sw.metrics,
+		IsPersistent: sw.IsPeerPersistent,
+	}
+}
+
+// ------------------------------------
+
+type PeerManager interface {
+	AddPeer(p Peer)
+	GetPeer(peerID ID) Peer
+	DefaultOutBoundPeerConfig() PeerConfig
+}

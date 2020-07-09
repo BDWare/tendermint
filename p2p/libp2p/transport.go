@@ -100,6 +100,7 @@ type LpTransport struct {
 
 	wait4Peer *cmap.CMap
 	host      host.Host
+	pm        p2p.PeerManager
 }
 
 // Test multiplexTransport for interface completeness.
@@ -107,7 +108,7 @@ var _ p2p.Transport = (*LpTransport)(nil)
 var _ p2p.TransportLifecycle = (*LpTransport)(nil)
 
 // NewLpTransport returns a tcp connected multiplexed peer.
-func NewLpTransport(nodeInfo p2p.NodeInfo, nodeKey p2p.NodeKey, host host.Host) *LpTransport {
+func NewLpTransport(nodeInfo p2p.NodeInfo, nodeKey p2p.NodeKey, host host.Host, pm p2p.PeerManager) *LpTransport {
 	mt := &LpTransport{
 		acceptc:          make(chan accept),
 		closec:           make(chan struct{}),
@@ -118,6 +119,7 @@ func NewLpTransport(nodeInfo p2p.NodeInfo, nodeKey p2p.NodeKey, host host.Host) 
 		nodeKey:          nodeKey,
 		wait4Peer:        cmap.NewCMap(),
 		host:             host,
+		pm:               pm,
 	}
 
 	// set our address (used in switch)
@@ -216,7 +218,8 @@ func (n2 *notif) Connected(n network.Network, c network.Conn) {
 				return
 			}
 
-			// TODO: add outbound peer of dht discovery to switch
+			// Add outbound peer of dht discovery to switch
+			mt.pm.AddPeer(mt.wrapLpPeer(nodeInfo, mt.pm.DefaultOutBoundPeerConfig(), na))
 
 		}
 	}()
@@ -265,6 +268,10 @@ func (mt *LpTransport) Dial(
 
 	ctx, _ := context.WithTimeout(context.Background(), mt.dialTimeout)
 	ai := p2p.LpAddrInfoFromNetAddress(addr)
+	// This means we are dialed or have connected to peer via dht discovery.
+	if mt.host.Network().Connectedness(ai.ID) == network.Connected {
+		return nil, p2p.NewIsDuplicateErrRejected(addr, fmt.Errorf("has connected"), addr.ID)
+	}
 	err := mt.host.Connect(ctx, ai)
 	if err != nil {
 		if err == swarm.ErrDialToSelf {
