@@ -352,6 +352,7 @@ func createLpMConnection(
 		onPeerError(p, r)
 	}
 
+	// TODO: set protocolPrefix via config
 	return tmconn.NewLibp2pMConnection(
 		"",
 		host,

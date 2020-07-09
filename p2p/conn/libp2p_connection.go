@@ -101,17 +101,23 @@ func NewLibp2pMConnectionWithConfig(
 	}
 
 	// Create channels
-	var channelsIdx = map[byte]*Libp2pChannel{}
-	var channels = []*Libp2pChannel{}
+	var lpChannelsIdx = map[byte]*Libp2pChannel{}
+	var ChannelsIdx = map[byte]*Channel{}
+	var lpChannels = []*Libp2pChannel{}
+	var Channels = []*Channel{}
 
 	for _, desc := range chDescs {
 		id := desc.ID
-		channel := newLibp2pChannel(mconn, *desc)
-		channelsIdx[id] = channel
-		channels = append(channels, channel)
+		lpChannel := newLibp2pChannel(mconn, *desc)
+		lpChannelsIdx[id] = lpChannel
+		ChannelsIdx[id] = lpChannel.Channel
+		lpChannels = append(lpChannels, lpChannel)
+		Channels = append(Channels, lpChannel.Channel)
 	}
-	mconn.channels = channels
-	mconn.channelsIdx = channelsIdx
+	mconn.channels = lpChannels
+	mconn.channelsIdx = lpChannelsIdx
+	mconn.MConnection.channels = Channels
+	mconn.MConnection.channelsIdx = ChannelsIdx
 
 	mconn.BaseService = *service.NewBaseService(nil, "Libp2pMConnection", mconn)
 
@@ -141,7 +147,7 @@ func (c *Libp2pMConnection) OnStart() error {
 	// Create stream, bufio.Reader and bufio.Writer for the ping protocol.
 	s, err := c.host.NewStream(ctx, c.peerID, protocol.ID(c.protocolPrefix+pingProtocolID))
 	if err != nil {
-		return fmt.Errorf("Failed to call host.NewStream to peer %v which should be already connected.", c.peerID)
+		return fmt.Errorf("failed to call host.NewStream to peer %v: %v", c.peerID, err)
 	}
 	c.stream = s
 	c.bufConnReader = bufio.NewReaderSize(s, minReadBufferSize)
@@ -152,7 +158,7 @@ func (c *Libp2pMConnection) OnStart() error {
 		chID := ch.desc.ID
 		s, err := c.host.NewStream(ctx, c.peerID, protocol.ID(c.protocolPrefix+string(chID)))
 		if err != nil {
-			return fmt.Errorf("Failed to call host.NewStream to peer %v which should be already connected.", c.peerID)
+			return fmt.Errorf("failed to call host.NewStream to peer %v: %v", c.peerID, err)
 		}
 		c.streams[chID] = s
 		c.bufConnReaders[chID] = bufio.NewReaderSize(s, minReadBufferSize)
@@ -524,6 +530,8 @@ FOR_LOOP:
 
 // recvRoutine receives the message from c.recv and serially calls onReceive().
 func (c *Libp2pMConnection) recvRoutine() {
+	defer c._recover()
+
 FOR_LOOP:
 	for {
 		select {
@@ -667,7 +675,7 @@ type Libp2pChannel struct {
 
 func newLibp2pChannel(conn *Libp2pMConnection, desc ChannelDescriptor) *Libp2pChannel {
 	return &Libp2pChannel{
-		Channel: newChannel(nil, desc),
+		Channel: newChannel(conn.MConnection, desc),
 		conn:    conn,
 	}
 }
