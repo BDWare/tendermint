@@ -2,7 +2,6 @@ package conn
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"io"
 	"math"
@@ -13,7 +12,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/protocol"
 	"github.com/pkg/errors"
 	"github.com/tendermint/go-amino"
 
@@ -22,8 +20,6 @@ import (
 	"github.com/bdware/tendermint/libs/service"
 	"github.com/bdware/tendermint/libs/timer"
 )
-
-const pingProtocolID = "ping"
 
 type recvMsg struct {
 	chID     byte
@@ -45,7 +41,7 @@ type Libp2pMConnection struct {
 	bufConnReaders map[byte]*bufio.Reader
 	bufConnWriters map[byte]*bufio.Writer
 	// recv channel to serialize received messages on all streams to call onReceive().
-	recv chan recvMsg
+	recv     chan recvMsg
 }
 
 // NewLibp2pMConnection wraps net.Conn and creates multiplex connection
@@ -56,6 +52,8 @@ func NewLibp2pMConnection(
 	chDescs []*ChannelDescriptor,
 	onReceive receiveCbFunc,
 	onError errorCbFunc,
+	pingStream network.Stream,
+	chStreams map[byte]network.Stream,
 ) *Libp2pMConnection {
 	return NewLibp2pMConnectionWithConfig(
 		protocolPrefix,
@@ -64,7 +62,11 @@ func NewLibp2pMConnection(
 		chDescs,
 		onReceive,
 		onError,
-		DefaultMConnConfig())
+		pingStream,
+		chStreams,
+		DefaultMConnConfig(),
+	)
+
 }
 
 // NewLibp2pMConnectionWithConfig wraps net.Conn and creates multiplex connection with a config
@@ -75,6 +77,8 @@ func NewLibp2pMConnectionWithConfig(
 	chDescs []*ChannelDescriptor,
 	onReceive receiveCbFunc,
 	onError errorCbFunc,
+	pingStream network.Stream,
+	chStreams map[byte]network.Stream,
 	config MConnConfig,
 ) *Libp2pMConnection {
 	if config.PongTimeout >= config.PingInterval {
@@ -95,9 +99,10 @@ func NewLibp2pMConnectionWithConfig(
 		protocolPrefix: protocolPrefix,
 		host:           host,
 		peerID:         peerID,
-		streams:        map[byte]network.Stream{},
 		bufConnReaders: map[byte]*bufio.Reader{},
 		bufConnWriters: map[byte]*bufio.Writer{},
+		stream:         pingStream,
+		streams:        chStreams,
 	}
 
 	// Create channels
@@ -136,31 +141,36 @@ func (c *Libp2pMConnection) OnStart() error {
 	if err := c.BaseService.OnStart(); err != nil {
 		return err
 	}
-
 	// 1 min timeout for all streams.
-	ctx, cncl := context.WithTimeout(context.Background(), 1*time.Minute)
-	go func() {
-		<-c.Quit()
-		cncl()
-	}()
+	//ctx, cncl := context.WithTimeout(context.Background(), 1*time.Minute)
+	//go func() {
+	//	<-c.Quit()
+	//	cncl()
+	//}()
 
 	// Create stream, bufio.Reader and bufio.Writer for the ping protocol.
-	s, err := c.host.NewStream(ctx, c.peerID, protocol.ID(c.protocolPrefix+pingProtocolID))
-	if err != nil {
-		return fmt.Errorf("failed to call host.NewStream to peer %v: %v", c.peerID, err)
-	}
-	c.stream = s
+	//s, err := c.host.NewStream(ctx, c.peerID, protocol.ID(c.protocolPrefix+PingProtocolID))
+	//if err != nil {
+	//	return fmt.Errorf("failed to call host.NewStream to peer %v: %v", c.peerID, err)
+	//}
+	//c.stream = s
+	s := c.stream
 	c.bufConnReader = bufio.NewReaderSize(s, minReadBufferSize)
 	c.bufConnWriter = bufio.NewWriterSize(s, minWriteBufferSize)
 
 	// Create stream, bufio.Reader and bufio.Writer for each channel.
-	for _, ch := range c.channels {
-		chID := ch.desc.ID
-		s, err := c.host.NewStream(ctx, c.peerID, protocol.ID(c.protocolPrefix+string(chID)))
-		if err != nil {
-			return fmt.Errorf("failed to call host.NewStream to peer %v: %v", c.peerID, err)
-		}
-		c.streams[chID] = s
+	//for _, ch := range c.channels {
+	//	chID := ch.desc.ID
+	//	s, err := c.host.NewStream(ctx, c.peerID, protocol.ID(c.protocolPrefix+string(chID)))
+	//	if err != nil {
+	//		return fmt.Errorf("failed to call host.NewStream to peer %v: %v", c.peerID, err)
+	//	}
+	//	c.streams[chID] = s
+	//	c.bufConnReaders[chID] = bufio.NewReaderSize(s, minReadBufferSize)
+	//	c.bufConnWriters[chID] = bufio.NewWriterSize(s, minWriteBufferSize)
+	//}
+
+	for chID, s := range c.streams {
 		c.bufConnReaders[chID] = bufio.NewReaderSize(s, minReadBufferSize)
 		c.bufConnWriters[chID] = bufio.NewWriterSize(s, minWriteBufferSize)
 	}

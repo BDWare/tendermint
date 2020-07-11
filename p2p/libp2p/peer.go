@@ -52,6 +52,8 @@ func newPeer(
 	reactorsByCh map[byte]p2p.Reactor,
 	chDescs []*tmconn.ChannelDescriptor,
 	onPeerError func(p2p.Peer, interface{}),
+	outbound bool,
+	ss *streams,
 	options ...PeerOption,
 ) *peer {
 	p := &peer{
@@ -61,6 +63,7 @@ func newPeer(
 		Data:          cmap.NewCMap(),
 		metricsTicker: time.NewTicker(p2p.MetricsTickerDuration),
 		metrics:       p2p.NopMetrics(),
+		outbound: outbound,
 	}
 
 	p.conn = createLpMConnection(
@@ -69,6 +72,7 @@ func newPeer(
 		reactorsByCh,
 		chDescs,
 		onPeerError,
+		ss,
 	)
 	p.BaseService = *service.NewBaseService(nil, "Peer", p)
 	for _, option := range options {
@@ -331,6 +335,7 @@ func createLpMConnection(
 	reactorsByCh map[byte]p2p.Reactor,
 	chDescs []*tmconn.ChannelDescriptor,
 	onPeerError func(p2p.Peer, interface{}),
+	ss *streams,
 ) *tmconn.Libp2pMConnection{
 
 	onReceive := func(chID byte, msgBytes []byte) {
@@ -352,13 +357,17 @@ func createLpMConnection(
 		onPeerError(p, r)
 	}
 
+	peerID := util.ID2Libp2pID(p.ID())
+
 	// TODO: set protocolPrefix via config
 	return tmconn.NewLibp2pMConnection(
-		"",
+		protocolPrefix,
 		host,
-		util.ID2Libp2pID(p.ID()),
+		peerID,
 		chDescs,
 		onReceive,
 		onError,
+		ss.pingStream,
+		ss.chStream,
 	)
 }

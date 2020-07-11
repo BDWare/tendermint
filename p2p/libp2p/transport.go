@@ -3,6 +3,8 @@ package libp2p
 import (
 	"context"
 	"fmt"
+	"github.com/libp2p/go-libp2p-core/protocol"
+	"sync"
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/host"
@@ -17,6 +19,8 @@ import (
 
 const (
 	ShakehandProtocol = "tdm-handshake"
+	PingProtocolID    = "ping"
+	protocolPrefix    = "tdm-"
 )
 
 // ConnFilterFunc to be implemented by filter hooks after a new connection has
@@ -98,9 +102,10 @@ type LpTransport struct {
 	nodeInfo         p2p.NodeInfo
 	nodeKey          p2p.NodeKey
 
-	wait4Peer *cmap.CMap
-	host      host.Host
-	pm        p2p.PeerManager
+	wait4Peer    *cmap.CMap
+	host         host.Host
+	pm           p2p.PeerManager
+	wait4Streams *cmap.CMap
 }
 
 // Test multiplexTransport for interface completeness.
@@ -130,6 +135,7 @@ func NewLpTransport(nodeInfo p2p.NodeInfo, nodeKey p2p.NodeKey, host host.Host, 
 	mt.netAddr = *addr
 
 	mt.host.Network().Notify(&notif{mt: mt})
+	mt.initStreamHandler()
 	mt.host.SetStreamHandler(ShakehandProtocol, func(s network.Stream) {
 		prID := s.Conn().RemotePeer()
 		na := p2p.NewNetAddressLibp2pIDMultiaddr(prID, s.Conn().RemoteMultiaddr())
@@ -467,6 +473,28 @@ func (mt *LpTransport) wrapLpPeer(
 			}
 		}
 	}
+	ss := new(streams)
+	ss.chStream = make(map[byte]network.Stream)
+
+	peerID := util.ID2Libp2pID(ni.ID())
+	channels := ni.(p2p.DefaultNodeInfo).Channels
+	if cfg.Outbound {
+		ctx, cncl := context.WithTimeout(context.Background(), 1*time.Minute)
+		defer cncl()
+		s, _ := mt.host.NewStream(ctx, peerID, protocol.ID(protocolPrefix+PingProtocolID))
+		ss.pingStream = s
+
+		for _, ch := range channels {
+			s, _ := mt.host.NewStream(ctx, peerID, protocol.ID(protocolPrefix+string(ch)))
+			ss.chStream[ch] = s
+		}
+	} else {
+		mt.wait4Streams.Set(string(peerID), ss)
+		ss.wg.Add(1 + len(channels))
+		// TODO: add timeout
+		ss.wg.Wait()
+		mt.wait4Streams.Delete(string(peerID))
+	}
 
 	p := newPeer(
 		mt.host,
@@ -474,11 +502,42 @@ func (mt *LpTransport) wrapLpPeer(
 		cfg.ReactorsByCh,
 		cfg.ChDescs,
 		cfg.OnPeerError,
+		cfg.Outbound,
+		ss,
 		PeerMetrics(cfg.Metrics),
 	)
 
 	p.persistent = persistent
-	p.outbound = cfg.Outbound
 	p.socketAddr = socketAddr
 	return p
+}
+
+func (mt *LpTransport) initStreamHandler() {
+	mt.host.SetStreamHandler(protocolPrefix+PingProtocolID, mt.streamHandler)
+	channels := mt.nodeInfo.(p2p.DefaultNodeInfo).Channels
+	for _, chID := range channels {
+		mt.host.SetStreamHandler(protocol.ID(protocolPrefix+string(chID)), mt.streamHandler)
+	}
+}
+
+type streams struct {
+	wg         sync.WaitGroup
+	pingStream network.Stream
+	chStream   map[byte]network.Stream
+}
+
+func (mt *LpTransport) streamHandler(s network.Stream) {
+	prID := s.Conn().RemotePeer()
+	if !mt.wait4Streams.Has(string(prID)) {
+		s.Reset()
+	} else {
+		ss := mt.wait4Streams.Get(string(prID)).(*streams)
+		ss.wg.Done()
+		if s.Protocol() == protocolPrefix+PingProtocolID {
+			ss.pingStream = s
+		} else {
+			bs := []byte(s.Protocol())
+			ss.chStream[bs[len(bs)-1]] = s
+		}
+	}
 }
