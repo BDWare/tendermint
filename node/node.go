@@ -814,6 +814,11 @@ func NewNode(config *cfg.Config,
 		consensusReactor, evidenceReactor, nodeInfo, nodeKey, p2pLogger,
 	)
 
+	// Add dht discovery peer to switch via peer manager if using libp2p transport.
+	if lt, ok := transport.(*libp2p.LpTransport); ok {
+		lt.SetPeerManager(sw)
+	}
+
 	err = sw.AddPersistentPeers(splitAndTrimEmpty(config.P2P.PersistentPeers, ",", " "))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not add peers from persistent_peers field")
@@ -877,7 +882,7 @@ func NewNode(config *cfg.Config,
 		indexerService:   indexerService,
 		eventBus:         eventBus,
 
-		host:             host,
+		host: host,
 	}
 	node.BaseService = *service.NewBaseService(logger, "Node", node)
 

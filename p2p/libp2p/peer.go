@@ -2,11 +2,11 @@ package libp2p
 
 import (
 	"fmt"
-	"github.com/libp2p/go-libp2p-core/network"
 	"net"
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/network"
 
 	"github.com/bdware/tendermint/libs/cmap"
 	"github.com/bdware/tendermint/libs/log"
@@ -28,8 +28,8 @@ type peer struct {
 	socketAddr *p2p.NetAddress
 
 	// our local peer host to send msg to this peer
-	host host.Host
-	conn *tmconn.Libp2pMConnection
+	host  host.Host
+	mconn *tmconn.Libp2pMConnection
 
 	// peer's node info and the channel it knows about
 	// channels = nodeInfo.Channels
@@ -49,11 +49,10 @@ type PeerOption func(*peer)
 func newPeer(
 	host host.Host,
 	nodeInfo p2p.NodeInfo,
+	ss *streams,
 	reactorsByCh map[byte]p2p.Reactor,
 	chDescs []*tmconn.ChannelDescriptor,
 	onPeerError func(p2p.Peer, interface{}),
-	outbound bool,
-	ss *streams,
 	options ...PeerOption,
 ) *peer {
 	p := &peer{
@@ -63,16 +62,15 @@ func newPeer(
 		Data:          cmap.NewCMap(),
 		metricsTicker: time.NewTicker(p2p.MetricsTickerDuration),
 		metrics:       p2p.NopMetrics(),
-		outbound: outbound,
 	}
 
-	p.conn = createLpMConnection(
+	p.mconn = createLpMConnection(
 		host,
 		p,
+		ss,
 		reactorsByCh,
 		chDescs,
 		onPeerError,
-		ss,
 	)
 	p.BaseService = *service.NewBaseService(nil, "Peer", p)
 	for _, option := range options {
@@ -97,7 +95,7 @@ func (p *peer) String() string {
 // SetLogger implements BaseService.
 func (p *peer) SetLogger(l log.Logger) {
 	p.Logger = l
-	p.conn.SetLogger(l)
+	p.mconn.SetLogger(l)
 }
 
 // OnStart implements BaseService.
@@ -106,7 +104,7 @@ func (p *peer) OnStart() error {
 		return err
 	}
 
-	if err := p.conn.Start(); err != nil {
+	if err := p.mconn.Start(); err != nil {
 		return err
 	}
 
@@ -120,14 +118,14 @@ func (p *peer) OnStart() error {
 func (p *peer) FlushStop() {
 	p.metricsTicker.Stop()
 	p.BaseService.OnStop()
-	p.conn.FlushStop() // stop everything and close the conn
+	p.mconn.FlushStop() // stop everything and close the conn
 }
 
 // OnStop implements BaseService.
 func (p *peer) OnStop() {
 	p.metricsTicker.Stop()
 	p.BaseService.OnStop()
-	p.conn.Stop() // stop everything and close the conn
+	p.mconn.Stop() // stop everything and close the conn
 }
 
 //---------------------------------------------------
@@ -182,7 +180,7 @@ func (p *peer) Send(chID byte, msgBytes []byte) bool {
 	}
 	//s := p.stream
 	//err := p.sendBytesTo(s, msgBytes, chID)
-	res := p.conn.Send(chID, msgBytes)
+	res := p.mconn.Send(chID, msgBytes)
 	if res {
 		labels := []string{
 			"peer_id", string(p.ID()),
@@ -201,7 +199,7 @@ func (p *peer) TrySend(chID byte, msgBytes []byte) bool {
 	} else if !p.hasChannel(chID) {
 		return false
 	}
-	res := p.conn.TrySend(chID, msgBytes)
+	res := p.mconn.TrySend(chID, msgBytes)
 	if res {
 		labels := []string{
 			"peer_id", string(p.ID()),
@@ -262,7 +260,7 @@ func (p *peer) CanSend(chID byte) bool {
 	if !p.IsRunning() {
 		return false
 	}
-	return p.conn.CanSend(chID)
+	return p.mconn.CanSend(chID)
 }
 
 //---------------------------------------------------
@@ -277,14 +275,13 @@ func (p *peer) metricsReporter() {
 	for {
 		select {
 		case <-p.metricsTicker.C:
-			// TODO: refactor this?
-			//status := p.mconn.Status()
-			//var sendQueueSize float64
-			//for _, chStatus := range status.Channels {
-			//	sendQueueSize += float64(chStatus.SendQueueSize)
-			//}
-			//
-			//p.metrics.PeerPendingSendBytes.With("peer_id", string(p.ID())).Set(sendQueueSize)
+			status := p.mconn.Status()
+			var sendQueueSize float64
+			for _, chStatus := range status.Channels {
+				sendQueueSize += float64(chStatus.SendQueueSize)
+			}
+
+			p.metrics.PeerPendingSendBytes.With("peer_id", string(p.ID())).Set(sendQueueSize)
 		case <-p.Quit():
 			return
 		}
@@ -332,11 +329,11 @@ func createConnection(
 func createLpMConnection(
 	host host.Host,
 	p *peer,
+	ss *streams,
 	reactorsByCh map[byte]p2p.Reactor,
 	chDescs []*tmconn.ChannelDescriptor,
 	onPeerError func(p2p.Peer, interface{}),
-	ss *streams,
-) *tmconn.Libp2pMConnection{
+) *tmconn.Libp2pMConnection {
 
 	onReceive := func(chID byte, msgBytes []byte) {
 		reactor := reactorsByCh[chID]
@@ -364,10 +361,10 @@ func createLpMConnection(
 		protocolPrefix,
 		host,
 		peerID,
+		ss.pingStream,
+		ss.chStream,
 		chDescs,
 		onReceive,
 		onError,
-		ss.pingStream,
-		ss.chStream,
 	)
 }

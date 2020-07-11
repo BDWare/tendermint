@@ -41,7 +41,7 @@ type Libp2pMConnection struct {
 	bufConnReaders map[byte]*bufio.Reader
 	bufConnWriters map[byte]*bufio.Writer
 	// recv channel to serialize received messages on all streams to call onReceive().
-	recv     chan recvMsg
+	recv chan recvMsg
 }
 
 // NewLibp2pMConnection wraps net.Conn and creates multiplex connection
@@ -49,21 +49,21 @@ func NewLibp2pMConnection(
 	protocolPrefix string,
 	host host.Host,
 	peerID peer.ID,
+	pingStream network.Stream,
+	chStreams map[byte]network.Stream,
 	chDescs []*ChannelDescriptor,
 	onReceive receiveCbFunc,
 	onError errorCbFunc,
-	pingStream network.Stream,
-	chStreams map[byte]network.Stream,
 ) *Libp2pMConnection {
 	return NewLibp2pMConnectionWithConfig(
 		protocolPrefix,
 		host,
 		peerID,
+		pingStream,
+		chStreams,
 		chDescs,
 		onReceive,
 		onError,
-		pingStream,
-		chStreams,
 		DefaultMConnConfig(),
 	)
 
@@ -74,11 +74,11 @@ func NewLibp2pMConnectionWithConfig(
 	protocolPrefix string,
 	host host.Host,
 	peerID peer.ID,
+	pingStream network.Stream,
+	chStreams map[byte]network.Stream,
 	chDescs []*ChannelDescriptor,
 	onReceive receiveCbFunc,
 	onError errorCbFunc,
-	pingStream network.Stream,
-	chStreams map[byte]network.Stream,
 	config MConnConfig,
 ) *Libp2pMConnection {
 	if config.PongTimeout >= config.PingInterval {

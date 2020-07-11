@@ -3,12 +3,12 @@ package libp2p
 import (
 	"context"
 	"fmt"
-	"github.com/libp2p/go-libp2p-core/protocol"
 	"sync"
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/protocol"
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	"github.com/multiformats/go-multiaddr"
 
@@ -22,6 +22,88 @@ const (
 	PingProtocolID    = "ping"
 	protocolPrefix    = "tdm-"
 )
+
+type accept struct {
+	netAddr  *p2p.NetAddress
+	nodeInfo p2p.NodeInfo
+	err      error
+}
+
+//-------------------------------------------------------------------------
+
+type notif struct {
+	mt *LpTransport
+}
+
+func (n2 *notif) Listen(n network.Network, m multiaddr.Multiaddr) {
+	return
+}
+
+func (n2 *notif) ListenClose(n network.Network, m multiaddr.Multiaddr) {
+	return
+}
+
+func (n2 *notif) Connected(n network.Network, c network.Conn) {
+	// If don't run it in a go routine, Connect in Dial may not return directly and then timeout.
+	go func() {
+		if c.Stat().Direction == network.DirOutbound {
+			mt := n2.mt
+			prID := c.RemotePeer()
+			ID := util.Libp2pID2ID(prID)
+			ma := c.RemoteMultiaddr()
+			na := p2p.NewNetAddressLibp2pIDMultiaddr(prID, ma)
+
+			// whether we are dialing this peer actively?
+			dialing := mt.wait4Peer.Has(string(ID))
+
+			// the peer that starts the connection also inits the handshake
+			s, err := mt.host.NewStream(context.TODO(), prID, ShakehandProtocol)
+			if err != nil {
+				// Close Conn so that we may connect to this peer later
+				c.Close()
+				if dialing {
+					mt.wait4Peer.Get(string(ID)).(chan accept) <- accept{netAddr: na, err: err}
+				}
+				return
+			}
+
+			nodeInfo, err := mt.doHandshake(s, nil)
+			if err != nil {
+				if dialing {
+					mt.wait4Peer.Get(string(ID)).(chan accept) <- accept{netAddr: na, err: err}
+				}
+				return
+			}
+			// we don't need this handshake stream any longer
+			s.Close()
+
+			if dialing {
+				mt.wait4Peer.Get(string(ID)).(chan accept) <- accept{netAddr: na, nodeInfo: nodeInfo}
+				return
+			}
+
+			// Add outbound peer of dht discovery to switch
+			mt.pm.AddPeer(mt.wrapLpPeer(nodeInfo, mt.pm.DefaultOutBoundPeerConfig(), na))
+
+		}
+	}()
+}
+
+func (n2 *notif) Disconnected(n network.Network, conn network.Conn) {
+	return
+
+}
+
+func (n2 *notif) OpenedStream(n network.Network, stream network.Stream) {
+	return
+
+}
+
+func (n2 *notif) ClosedStream(n network.Network, stream network.Stream) {
+	return
+}
+
+//-------------------------------------------------------------------------
 
 // ConnFilterFunc to be implemented by filter hooks after a new connection has
 // been established. The set of exisiting connections is passed along together
@@ -77,12 +159,6 @@ const (
 //	return func(mt *LpTransport) { mt.maxIncomingConnections = n }
 //}
 
-type accept struct {
-	netAddr  *p2p.NetAddress
-	nodeInfo p2p.NodeInfo
-	err      error
-}
-
 // LpTransport accepts and dials tcp connections and upgrades them to
 // multiplexed peers.
 type LpTransport struct {
@@ -102,9 +178,9 @@ type LpTransport struct {
 	nodeInfo         p2p.NodeInfo
 	nodeKey          p2p.NodeKey
 
-	wait4Peer    *cmap.CMap
 	host         host.Host
 	pm           p2p.PeerManager
+	wait4Peer    *cmap.CMap
 	wait4Streams *cmap.CMap
 }
 
@@ -113,7 +189,7 @@ var _ p2p.Transport = (*LpTransport)(nil)
 var _ p2p.TransportLifecycle = (*LpTransport)(nil)
 
 // NewLpTransport returns a tcp connected multiplexed peer.
-func NewLpTransport(nodeInfo p2p.NodeInfo, nodeKey p2p.NodeKey, host host.Host, pm p2p.PeerManager) *LpTransport {
+func NewLpTransport(nodeInfo p2p.NodeInfo, nodeKey p2p.NodeKey, host host.Host) *LpTransport {
 	mt := &LpTransport{
 		acceptc:          make(chan accept),
 		closec:           make(chan struct{}),
@@ -122,9 +198,9 @@ func NewLpTransport(nodeInfo p2p.NodeInfo, nodeKey p2p.NodeKey, host host.Host, 
 		handshakeTimeout: p2p.DefaultHandshakeTimeout,
 		nodeInfo:         nodeInfo,
 		nodeKey:          nodeKey,
-		wait4Peer:        cmap.NewCMap(),
 		host:             host,
-		pm:               pm,
+		wait4Peer:        cmap.NewCMap(),
+		wait4Streams:     cmap.NewCMap(),
 	}
 
 	// set our address (used in switch)
@@ -135,114 +211,19 @@ func NewLpTransport(nodeInfo p2p.NodeInfo, nodeKey p2p.NodeKey, host host.Host, 
 	mt.netAddr = *addr
 
 	mt.host.Network().Notify(&notif{mt: mt})
-	mt.initStreamHandler()
-	mt.host.SetStreamHandler(ShakehandProtocol, func(s network.Stream) {
-		prID := s.Conn().RemotePeer()
-		na := p2p.NewNetAddressLibp2pIDMultiaddr(prID, s.Conn().RemoteMultiaddr())
-		nodeInfo, err := mt.dohandshake(s, nil)
-		if err != nil {
-			// If Close() has been called, silently exit.
-			select {
-			case _, ok := <-mt.closec:
-				if !ok {
-					return
-				}
-			default:
-				// Transport is not closed
-			}
+	mt.host.SetStreamHandler(ShakehandProtocol, mt.handleHandShake)
+	mt.initMsgStreamHandlers()
 
-			mt.acceptc <- accept{netAddr: na, err: err}
-			return
-		}
-
-		select {
-		case mt.acceptc <- accept{netAddr: na, nodeInfo: nodeInfo}:
-
-		case <-mt.closec:
-
-		}
-
-		// don't need shakehand stream any longer
-		s.Close()
-	})
 	return mt
+}
+
+func (mt *LpTransport) SetPeerManager(pm p2p.PeerManager) {
+	mt.pm = pm
 }
 
 // NetAddress implements Transport.
 func (mt *LpTransport) NetAddress() p2p.NetAddress {
 	return mt.netAddr
-}
-
-type notif struct {
-	mt *LpTransport
-}
-
-func (n2 *notif) Listen(n network.Network, m multiaddr.Multiaddr) {
-	return
-}
-
-func (n2 *notif) ListenClose(n network.Network, m multiaddr.Multiaddr) {
-	return
-}
-
-func (n2 *notif) Connected(n network.Network, c network.Conn) {
-	// If don't run it in a go routine, Connect in Dial may not return directly and then timeout.
-	go func() {
-		if c.Stat().Direction == network.DirOutbound {
-			mt := n2.mt
-			prID := c.RemotePeer()
-			ID := util.Libp2pID2ID(prID)
-			ma := c.RemoteMultiaddr()
-			na := p2p.NewNetAddressLibp2pIDMultiaddr(prID, ma)
-
-			// whether we are dialing this peer actively?
-			dialing := mt.wait4Peer.Has(string(ID))
-
-			// the peer that starts the connection also inits the handshake
-			s, err := mt.host.NewStream(context.TODO(), prID, ShakehandProtocol)
-			if err != nil {
-				// Close Conn so that we may connect to this peer later
-				c.Close()
-				if dialing {
-					mt.wait4Peer.Get(string(ID)).(chan accept) <- accept{netAddr: na, err: err}
-				}
-				return
-			}
-
-			nodeInfo, err := mt.dohandshake(s, nil)
-			if err != nil {
-				if dialing {
-					mt.wait4Peer.Get(string(ID)).(chan accept) <- accept{netAddr: na, err: err}
-				}
-				return
-			}
-			// we don't need this shakehand stream any longer
-			s.Close()
-
-			if dialing {
-				mt.wait4Peer.Get(string(ID)).(chan accept) <- accept{netAddr: na, nodeInfo: nodeInfo}
-				return
-			}
-
-			// Add outbound peer of dht discovery to switch
-			mt.pm.AddPeer(mt.wrapLpPeer(nodeInfo, mt.pm.DefaultOutBoundPeerConfig(), na))
-
-		}
-	}()
-}
-
-func (n2 *notif) Disconnected(n network.Network, conn network.Conn) {
-	return
-
-}
-
-func (n2 *notif) OpenedStream(n network.Network, stream network.Stream) {
-	return
-
-}
-
-func (n2 *notif) ClosedStream(n network.Network, stream network.Stream) {
-	return
 }
 
 // Accept implements Transport.
@@ -330,47 +311,6 @@ func (mt *LpTransport) Listen(addr p2p.NetAddress) (err error) {
 	return fmt.Errorf("should not be called")
 }
 
-// handshake exchanges NodeInfo
-func handshake(
-	s network.Stream,
-	timeout time.Duration,
-	nodeInfo p2p.NodeInfo,
-) (p2p.NodeInfo, error) {
-	if err := s.SetDeadline(time.Now().Add(timeout)); err != nil {
-		return nil, err
-	}
-
-	var (
-		errc = make(chan error, 2)
-
-		peerNodeInfo p2p.DefaultNodeInfo
-		ourNodeInfo  = nodeInfo.(p2p.DefaultNodeInfo)
-	)
-
-	go func(errc chan<- error, s network.Stream) {
-		_, err := p2p.Cdc.MarshalBinaryLengthPrefixedWriter(s, ourNodeInfo)
-		errc <- err
-	}(errc, s)
-
-	go func(errc chan<- error, s network.Stream) {
-		_, err := p2p.Cdc.UnmarshalBinaryLengthPrefixedReader(
-			s,
-			&peerNodeInfo,
-			int64(p2p.MaxNodeInfoSize()),
-		)
-		errc <- err
-	}(errc, s)
-
-	for i := 0; i < cap(errc); i++ {
-		err := <-errc
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return peerNodeInfo, s.SetDeadline(time.Time{})
-}
-
 // Cleanup removes the given address from the connections set and
 // closes the connection.
 func (mt *LpTransport) Cleanup(p p2p.Peer) {
@@ -381,7 +321,7 @@ func (mt *LpTransport) cleanup(s network.Stream) error {
 	return s.Conn().Close()
 }
 
-func (mt *LpTransport) dohandshake(
+func (mt *LpTransport) doHandshake(
 	s network.Stream,
 	dialedAddr *p2p.NetAddress,
 ) (nodeInfo p2p.NodeInfo, err error) {
@@ -439,23 +379,6 @@ func (mt *LpTransport) dohandshake(
 	return nodeInfo, nil
 }
 
-//func upgradeSecretConn(
-//	s network.Stream,
-//	timeout time.Duration,
-//	privKey crypto.PrivKey,
-//) (*conn.SecretConnection, error) {
-//	if err := s.SetDeadline(time.Now().Add(timeout)); err != nil {
-//		return nil, err
-//	}
-//
-//	sc, err := conn.MakeSecretConnection(s, privKey)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	return sc, sc.SetDeadline(time.Time{})
-//}
-
 func (mt *LpTransport) wrapLpPeer(
 	ni p2p.NodeInfo,
 	cfg p2p.PeerConfig,
@@ -481,6 +404,7 @@ func (mt *LpTransport) wrapLpPeer(
 	if cfg.Outbound {
 		ctx, cncl := context.WithTimeout(context.Background(), 1*time.Minute)
 		defer cncl()
+		// Leave errors here to MConnection to handle.
 		s, _ := mt.host.NewStream(ctx, peerID, protocol.ID(protocolPrefix+PingProtocolID))
 		ss.pingStream = s
 
@@ -499,24 +423,56 @@ func (mt *LpTransport) wrapLpPeer(
 	p := newPeer(
 		mt.host,
 		ni,
+		ss,
 		cfg.ReactorsByCh,
 		cfg.ChDescs,
 		cfg.OnPeerError,
-		cfg.Outbound,
-		ss,
 		PeerMetrics(cfg.Metrics),
 	)
 
 	p.persistent = persistent
+	p.outbound = cfg.Outbound
 	p.socketAddr = socketAddr
 	return p
 }
 
-func (mt *LpTransport) initStreamHandler() {
-	mt.host.SetStreamHandler(protocolPrefix+PingProtocolID, mt.streamHandler)
+func (mt *LpTransport) handleHandShake(s network.Stream) {
+	prID := s.Conn().RemotePeer()
+	na := p2p.NewNetAddressLibp2pIDMultiaddr(prID, s.Conn().RemoteMultiaddr())
+	nodeInfo, err := mt.doHandshake(s, nil)
+	if err != nil {
+		// If Close() has been called, silently exit.
+		select {
+		case _, ok := <-mt.closec:
+			if !ok {
+				return
+			}
+		default:
+			// Transport is not closed
+		}
+
+		mt.acceptc <- accept{netAddr: na, err: err}
+		return
+	}
+
+	select {
+	case mt.acceptc <- accept{netAddr: na, nodeInfo: nodeInfo}:
+
+	case <-mt.closec:
+
+	}
+
+	// don't need shakehand stream any longer
+	s.Close()
+}
+
+//-------------------------------------------------------------------------
+
+func (mt *LpTransport) initMsgStreamHandlers() {
+	mt.host.SetStreamHandler(protocolPrefix+PingProtocolID, mt.handleMsgStream)
 	channels := mt.nodeInfo.(p2p.DefaultNodeInfo).Channels
 	for _, chID := range channels {
-		mt.host.SetStreamHandler(protocol.ID(protocolPrefix+string(chID)), mt.streamHandler)
+		mt.host.SetStreamHandler(protocol.ID(protocolPrefix+string(chID)), mt.handleMsgStream)
 	}
 }
 
@@ -526,18 +482,76 @@ type streams struct {
 	chStream   map[byte]network.Stream
 }
 
-func (mt *LpTransport) streamHandler(s network.Stream) {
+func (mt *LpTransport) handleMsgStream(s network.Stream) {
 	prID := s.Conn().RemotePeer()
 	if !mt.wait4Streams.Has(string(prID)) {
 		s.Reset()
 	} else {
 		ss := mt.wait4Streams.Get(string(prID)).(*streams)
-		ss.wg.Done()
 		if s.Protocol() == protocolPrefix+PingProtocolID {
 			ss.pingStream = s
 		} else {
 			bs := []byte(s.Protocol())
 			ss.chStream[bs[len(bs)-1]] = s
 		}
+		ss.wg.Done()
 	}
 }
+
+// handshake exchanges NodeInfo
+func handshake(
+	s network.Stream,
+	timeout time.Duration,
+	nodeInfo p2p.NodeInfo,
+) (p2p.NodeInfo, error) {
+	if err := s.SetDeadline(time.Now().Add(timeout)); err != nil {
+		return nil, err
+	}
+
+	var (
+		errc = make(chan error, 2)
+
+		peerNodeInfo p2p.DefaultNodeInfo
+		ourNodeInfo  = nodeInfo.(p2p.DefaultNodeInfo)
+	)
+
+	go func(errc chan<- error, s network.Stream) {
+		_, err := p2p.Cdc.MarshalBinaryLengthPrefixedWriter(s, ourNodeInfo)
+		errc <- err
+	}(errc, s)
+
+	go func(errc chan<- error, s network.Stream) {
+		_, err := p2p.Cdc.UnmarshalBinaryLengthPrefixedReader(
+			s,
+			&peerNodeInfo,
+			int64(p2p.MaxNodeInfoSize()),
+		)
+		errc <- err
+	}(errc, s)
+
+	for i := 0; i < cap(errc); i++ {
+		err := <-errc
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return peerNodeInfo, s.SetDeadline(time.Time{})
+}
+
+//func upgradeSecretConn(
+//	s network.Stream,
+//	timeout time.Duration,
+//	privKey crypto.PrivKey,
+//) (*conn.SecretConnection, error) {
+//	if err := s.SetDeadline(time.Now().Add(timeout)); err != nil {
+//		return nil, err
+//	}
+//
+//	sc, err := conn.MakeSecretConnection(s, privKey)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	return sc, sc.SetDeadline(time.Time{})
+//}

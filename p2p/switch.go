@@ -830,17 +830,14 @@ func (sw *Switch) AddPeer(p Peer) {
 	}
 }
 
-func (sw *Switch) GetPeer(peerID ID) Peer {
-	return sw.peers.Get(peerID)
-}
-
 func (sw *Switch) DefaultOutBoundPeerConfig() PeerConfig {
 	return PeerConfig{
 		ChDescs:      sw.chDescs,
 		OnPeerError:  sw.StopPeerForError,
+		Outbound:     true,
 		ReactorsByCh: sw.reactorsByCh,
-		Metrics:      sw.metrics,
 		IsPersistent: sw.IsPeerPersistent,
+		Metrics:      sw.metrics,
 	}
 }
 
@@ -848,6 +845,5 @@ func (sw *Switch) DefaultOutBoundPeerConfig() PeerConfig {
 
 type PeerManager interface {
 	AddPeer(p Peer)
-	GetPeer(peerID ID) Peer
 	DefaultOutBoundPeerConfig() PeerConfig
 }
