@@ -249,16 +249,17 @@ func (mt *LpTransport) Dial(
 	addr p2p.NetAddress,
 	cfg p2p.PeerConfig,
 ) (p2p.Peer, error) {
-	ch := make(chan accept)
-	mt.wait4Peer.Set(string(addr.ID), ch)
-	defer mt.wait4Peer.Delete(string(addr.ID))
-
-	ctx, _ := context.WithTimeout(context.Background(), mt.dialTimeout)
 	ai := p2p.LpAddrInfoFromNetAddress(addr)
 	// This means we are dialed or have connected to peer via dht discovery.
 	if mt.host.Network().Connectedness(ai.ID) == network.Connected {
 		return nil, p2p.NewIsDuplicateErrRejected(addr, fmt.Errorf("has connected"), addr.ID)
 	}
+
+	ch := make(chan accept)
+	mt.wait4Peer.Set(string(addr.ID), ch)
+	defer mt.wait4Peer.Delete(string(addr.ID))
+
+	ctx, _ := context.WithTimeout(context.Background(), mt.dialTimeout)
 	err := mt.host.Connect(ctx, ai)
 	if err != nil {
 		if err == swarm.ErrDialToSelf {

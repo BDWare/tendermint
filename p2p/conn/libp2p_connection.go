@@ -175,7 +175,7 @@ func (c *Libp2pMConnection) OnStart() error {
 		c.bufConnWriters[chID] = bufio.NewWriterSize(s, minWriteBufferSize)
 	}
 
-	c.recv = make(chan recvMsg)
+	//c.recv = make(chan recvMsg)
 
 	// TODO: Maybe we can not run ping protocol in Tendermint
 	// and run it in libp2p outside of Tendermint if we need.
@@ -190,7 +190,7 @@ func (c *Libp2pMConnection) OnStart() error {
 	// Start all the routines.
 	go c.sendRoutine()
 	go c.recvRoutinePingpong()
-	go c.recvRoutine()
+	//go c.recvRoutine()
 	for _, ch := range c.channels {
 		go c.recvRoutineChannel(ch)
 	}
@@ -637,12 +637,15 @@ FOR_LOOP:
 			}
 			if msgBytes != nil {
 				c.Logger.Debug("Received bytes", "chID", chID, "msgBytes", fmt.Sprintf("%X", msgBytes))
+				// Should send in the same thread of its recvRoutine to prevent msgBytes from changing.
+				c.onReceive(chID, msgBytes)
+				
 				// Send to c.recv to serialize received messages on all streams to call onReceive().
-				select {
-				case <-c.quitRecvRoutine:
-					break FOR_LOOP
-				case c.recv <- recvMsg{chID, msgBytes}:
-				}
+				//select {
+				//case <-c.quitRecvRoutine:
+				//	break FOR_LOOP
+				//case c.recv <- recvMsg{chID, msgBytes}:
+				//}
 			}
 		default:
 			err := fmt.Errorf("unexpected message type %v", reflect.TypeOf(packet))
