@@ -28,14 +28,24 @@ import (
 	"github.com/bdware/tendermint/test/builtin/libp2p"
 )
 
+var home = os.Getenv("HOME")
 var configFile string
+var badgerPath string
 
 func init() {
-	flag.StringVar(&configFile, "config", "$HOME/.tendermint/config/config.toml", "Path to config.toml")
+	flag.StringVar(&configFile, "config", home+"/.tendermint/config/config.toml", "Path to config.toml")
+	flag.StringVar(&badgerPath, "badger", "/tmp/tendermint/test-builtin/badger", "Path to badger db")
 }
 
 func main() {
-	db, err := badger.Open(badger.DefaultOptions("/tmp/tendermint/test-builtin/badger"))
+	if _, err := os.Stat(badgerPath); os.IsNotExist(err) {
+		err = os.MkdirAll(badgerPath, 0755)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to create badger db dir of %v: %v", badgerPath, err)
+			os.Exit(1)
+		}
+	}
+	db, err := badger.Open(badger.DefaultOptions(badgerPath))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to open badger db: %v", err)
 		os.Exit(1)
