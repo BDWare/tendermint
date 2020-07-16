@@ -6,6 +6,7 @@ import (
 	"io"
 	"math"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -40,8 +41,13 @@ type Libp2pMConnection struct {
 	streams        map[byte]network.Stream
 	bufConnReaders map[byte]*bufio.Reader
 	bufConnWriters map[byte]*bufio.Writer
-	// recv channel to serialize received messages on all streams to call onReceive().
-	recv chan recvMsg
+
+	// Deprecated: recv channel to serialize received messages on all streams to call onReceive().
+	recv     chan recvMsg
+	recvDone map[byte]chan struct{}
+
+	// Ensure onReceive executes serially.
+	recvMtx sync.Mutex
 }
 
 // NewLibp2pMConnection wraps net.Conn and creates multiplex connection
@@ -176,6 +182,10 @@ func (c *Libp2pMConnection) OnStart() error {
 	}
 
 	//c.recv = make(chan recvMsg)
+	//c.recvDone = make(map[byte]chan struct{})
+	//for ch := range c.channelsIdx {
+	//	c.recvDone[ch] = make(chan struct{})
+	//}
 
 	// TODO: Maybe we can not run ping protocol in Tendermint
 	// and run it in libp2p outside of Tendermint if we need.
@@ -538,7 +548,7 @@ FOR_LOOP:
 	}
 }
 
-// recvRoutine receives the message from c.recv and serially calls onReceive().
+// Deprecated: recvRoutine receives the message from c.recv and serially calls onReceive().
 func (c *Libp2pMConnection) recvRoutine() {
 	defer c._recover()
 
@@ -550,11 +560,15 @@ FOR_LOOP:
 		case m := <-c.recv:
 			// NOTE: This means the reactor.Receive runs in the same thread as the p2p recv routine
 			c.onReceive(m.chID, m.msgBytes)
+			c.recvDone[m.chID] <- struct{}{}
 		}
 	}
 
 	// Cleanup
 	close(c.recv)
+	for _, c := range c.recvDone {
+		close(c)
+	}
 	for range c.recv {
 		// Drain
 	}
@@ -637,14 +651,18 @@ FOR_LOOP:
 			}
 			if msgBytes != nil {
 				c.Logger.Debug("Received bytes", "chID", chID, "msgBytes", fmt.Sprintf("%X", msgBytes))
-				// Should send in the same thread of its recvRoutine to prevent msgBytes from changing.
+				// Should handle msg in the same thread to prevent msgBytes from changing.
+				// Here we make onReceive executes serially.
+				c.recvMtx.Lock()
 				c.onReceive(chID, msgBytes)
-				
+				c.recvMtx.Unlock()
+
 				// Send to c.recv to serialize received messages on all streams to call onReceive().
 				//select {
 				//case <-c.quitRecvRoutine:
 				//	break FOR_LOOP
 				//case c.recv <- recvMsg{chID, msgBytes}:
+				//	<-c.recvDone[chID]
 				//}
 			}
 		default:
