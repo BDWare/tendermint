@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	ShakehandProtocol = "tdm-handshake"
+	HandShakeProtocol = "tdm-handshake"
 	PingProtocolID    = "ping"
 	protocolPrefix    = "tdm-"
 )
@@ -44,25 +44,26 @@ func (n2 *notif) ListenClose(n network.Network, m multiaddr.Multiaddr) {
 }
 
 func (n2 *notif) Connected(n network.Network, c network.Conn) {
+	mt := n2.mt
+	lpID := c.RemotePeer()
+	ID := util.Libp2pID2ID(lpID)
+	// Whether we are dialing this peer actively?
+	dialing := mt.wait4Peer.Has(string(ID))
 	// If don't run it in a go routine, Connect in Dial may not return directly and then timeout.
 	go func() {
 		if c.Stat().Direction == network.DirOutbound {
-			mt := n2.mt
-			prID := c.RemotePeer()
-			ID := util.Libp2pID2ID(prID)
-			ma := c.RemoteMultiaddr()
-			na := p2p.NewNetAddressLibp2pIDMultiaddr(prID, ma)
+			na := p2p.NewNetAddressLibp2pIDMultiaddr(lpID, c.RemoteMultiaddr())
 
-			// whether we are dialing this peer actively?
-			dialing := mt.wait4Peer.Has(string(ID))
-
-			// the peer that starts the connection also inits the handshake
-			s, err := mt.host.NewStream(context.TODO(), prID, ShakehandProtocol)
+			// The peer who starts the connection also inits the handshake.
+			s, err := mt.host.NewStream(context.TODO(), lpID, HandShakeProtocol)
 			if err != nil {
-				// Close Conn so that we may connect to this peer later
-				c.Close()
+				// Close Conn so that we may connect to this peer later.
+				_ = c.Close()
 				if dialing {
-					mt.wait4Peer.Get(string(ID)).(chan accept) <- accept{netAddr: na, err: err}
+					// Channel might have been deleted if Connect in Dial failed.
+					if ch, ok := mt.wait4Peer.Get(string(ID)).(chan accept); ok {
+						ch <- accept{netAddr: na, err: err}
+					}
 				}
 				return
 			}
@@ -70,19 +71,26 @@ func (n2 *notif) Connected(n network.Network, c network.Conn) {
 			nodeInfo, err := mt.doHandshake(s, nil)
 			if err != nil {
 				if dialing {
-					mt.wait4Peer.Get(string(ID)).(chan accept) <- accept{netAddr: na, err: err}
+					if ch, ok := mt.wait4Peer.Get(string(ID)).(chan accept); ok {
+						ch <- accept{netAddr: na, err: err}
+					}
 				}
 				return
 			}
-			// we don't need this handshake stream any longer
-			s.Close()
+			// We don't need this handshake stream any longer.
+			_ = s.Close()
 
 			if dialing {
-				mt.wait4Peer.Get(string(ID)).(chan accept) <- accept{netAddr: na, nodeInfo: nodeInfo}
+				if ch, ok := mt.wait4Peer.Get(string(ID)).(chan accept); ok {
+					ch <- accept{netAddr: na, nodeInfo: nodeInfo}
+				} else {
+					// Errors occur in Dial, close conn so that we can connect later.
+					_ = c.Close()
+				}
 				return
 			}
 
-			// Add outbound peer of dht discovery to switch
+			// Add outbound peer of dht discovery to switch.
 			mt.pm.AddPeer(mt.wrapLpPeer(nodeInfo, mt.pm.DefaultOutBoundPeerConfig(), na))
 
 		}
@@ -91,12 +99,10 @@ func (n2 *notif) Connected(n network.Network, c network.Conn) {
 
 func (n2 *notif) Disconnected(n network.Network, conn network.Conn) {
 	return
-
 }
 
 func (n2 *notif) OpenedStream(n network.Network, stream network.Stream) {
 	return
-
 }
 
 func (n2 *notif) ClosedStream(n network.Network, stream network.Stream) {
@@ -211,7 +217,7 @@ func NewLpTransport(nodeInfo p2p.NodeInfo, nodeKey p2p.NodeKey, host host.Host) 
 	mt.netAddr = *addr
 
 	mt.host.Network().Notify(&notif{mt: mt})
-	mt.host.SetStreamHandler(ShakehandProtocol, mt.handleHandShake)
+	mt.host.SetStreamHandler(HandShakeProtocol, mt.handleHandShake)
 	mt.initMsgStreamHandlers()
 
 	return mt
@@ -259,7 +265,8 @@ func (mt *LpTransport) Dial(
 	mt.wait4Peer.Set(string(addr.ID), ch)
 	defer mt.wait4Peer.Delete(string(addr.ID))
 
-	ctx, _ := context.WithTimeout(context.Background(), mt.dialTimeout)
+	ctx, cncl := context.WithTimeout(context.Background(), mt.dialTimeout)
+	defer cncl()
 	err := mt.host.Connect(ctx, ai)
 	if err != nil {
 		if err == swarm.ErrDialToSelf {
@@ -295,7 +302,7 @@ func (mt *LpTransport) Listen(addr p2p.NetAddress) (err error) {
 	//ma := addr.Multiaddr()
 	//if err = mt.host.Network().Listen(ma); err != nil {return err}
 	//mt.netAddr = addr
-	//mt.host.SetStreamHandler(ShakehandProtocol, func(s network.Stream) {
+	//mt.host.SetStreamHandler(HandShakeProtocol, func(s network.Stream) {
 	//	prID := s.Conn().LocalPeer()
 	//	nodeInfo, err := mt.handshake(s)
 	//	if err != nil {
@@ -322,6 +329,8 @@ func (mt *LpTransport) cleanup(s network.Stream) error {
 	return s.Conn().Close()
 }
 
+// doHandShake will exchange NodeInfo, validates it and does some other checks.
+// If any error occurs, it will clean up and close peer connection.
 func (mt *LpTransport) doHandshake(
 	s network.Stream,
 	dialedAddr *p2p.NetAddress,
@@ -463,8 +472,8 @@ func (mt *LpTransport) handleHandShake(s network.Stream) {
 
 	}
 
-	// don't need shakehand stream any longer
-	s.Close()
+	// We don't need this handshake stream any longer.
+	_ = s.Close()
 }
 
 //-------------------------------------------------------------------------
