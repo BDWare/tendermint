@@ -480,6 +480,8 @@ func (mt *LpTransport) initMsgStreamHandlers() {
 type streams struct {
 	wg         sync.WaitGroup
 	pingStream network.Stream
+
+	mtx sync.Mutex // protection for chStream
 	chStream   map[byte]network.Stream
 }
 
@@ -493,7 +495,10 @@ func (mt *LpTransport) handleMsgStream(s network.Stream) {
 			ss.pingStream = s
 		} else {
 			bs := []byte(s.Protocol())
+			// This function may be called concurrently
+			ss.mtx.Lock()
 			ss.chStream[bs[len(bs)-1]] = s
+			ss.mtx.Unlock()
 		}
 		ss.wg.Done()
 	}
