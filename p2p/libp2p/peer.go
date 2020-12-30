@@ -5,15 +5,13 @@ import (
 	"net"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/network"
-
 	"github.com/bdware/tendermint/libs/cmap"
 	"github.com/bdware/tendermint/libs/log"
 	"github.com/bdware/tendermint/libs/service"
 	"github.com/bdware/tendermint/p2p"
 	tmconn "github.com/bdware/tendermint/p2p/conn"
 	"github.com/bdware/tendermint/p2p/libp2p/util"
+	"github.com/libp2p/go-libp2p-core/host"
 )
 
 var _ p2p.Peer = (*peer)(nil)
@@ -290,41 +288,6 @@ func (p *peer) metricsReporter() {
 
 //------------------------------------------------------------------
 // helper funcs
-
-func createConnection(
-	s network.Stream,
-	p *peer,
-	reactorsByCh map[byte]p2p.Reactor,
-	chDescs []*tmconn.ChannelDescriptor,
-	onPeerError func(p2p.Peer, interface{}),
-) *Connection {
-
-	onReceive := func(chID byte, msgBytes []byte) {
-		reactor := reactorsByCh[chID]
-		if reactor == nil {
-			// Note that its ok to panic here as it's caught in the conn._recover,
-			// which does onPeerError.
-			panic(fmt.Sprintf("Unknown channel %X", chID))
-		}
-		labels := []string{
-			"peer_id", string(p.ID()),
-			"chID", fmt.Sprintf("%#x", chID),
-		}
-		p.metrics.PeerReceiveBytesTotal.With(labels...).Add(float64(len(msgBytes)))
-		reactor.Receive(chID, p, msgBytes)
-	}
-
-	onError := func(r interface{}) {
-		onPeerError(p, r)
-	}
-
-	return NewConnection(
-		s,
-		chDescs,
-		onReceive,
-		onError,
-	)
-}
 
 func createLpMConnection(
 	host host.Host,

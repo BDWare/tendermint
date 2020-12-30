@@ -1,31 +1,48 @@
-[Creating a built-in application in Go](https://docs.tendermint.com/master/guides/go-built-in.html)
+# Reference
+[Creating a built-in application in Go](https://docs.tendermint.com/master/tutorials/go-built-in.html)
 
-# build
+# Build
 
-```bash
+```shell
 go build
 ```
 
-# generate config
+# Generate Config Files
 
-use tendermint core
+Only need do this once.
 
-```bash
-TMHOME="$PWD/example" tendermint init
+Use `tendermint init`:
+
+1. Run `genconf.sh` in each node.
+
+   Note this will overwrite existing config files.
+
+2. Collect all peer node ids(you can use `node_id.sh`), hosts and ports and fill them in p2p/persistent_peers field of all nodes' config.toml.
+
+Or use `tendermint testnode`:
+
+1. Run `tendermint testnode` in any node.
+
+2. Distribute generated test config files to each node manually.
+
+# Run
+
+```shell
+./run.sh
 ```
 
-or
+# Send Tx & Query
 
-```bash
-tendermint testnode
+See [Getting Up and Running](https://docs.tendermint.com/master/tutorials/go-built-in.html#_1-5-getting-up-and-running).
+
+# Clean
+
+```shell
+./clean
 ```
 
-# run
+This will remove all app data and reset peer state.
 
-```bash
-./builtin -config="example/config/config.toml"
-```
+# Badger Storage
 
-# badger storage
-
-default:/tmp/tendermint/test-builtin/badger
+default location: `/tmp/tendermint/test-builtin/badger`
