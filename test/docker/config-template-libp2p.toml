@@ -1,0 +1,5 @@
+[rpc]
+laddr = "tcp://0.0.0.0:26657"
+
+[p2p]
+libp2p = true

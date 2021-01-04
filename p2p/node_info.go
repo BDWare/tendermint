@@ -216,7 +216,7 @@ OUTER_LOOP:
 // NetAddress returns a NetAddress derived from the DefaultNodeInfo -
 // it includes the authenticated peer ID and the self-reported
 // ListenAddr. Note that the ListenAddr is not authenticated and
-// may not match that address actually dialed if its an outbound peer.
+// may not match that address actually dialed if its an Outbound peer.
 func (info DefaultNodeInfo) NetAddress() (*NetAddress, error) {
 	idAddr := IDAddressString(info.ID(), info.ListenAddr)
 	return NewNetAddressString(idAddr)

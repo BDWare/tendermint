@@ -240,11 +240,11 @@ func TestSwitchPeerFilter(t *testing.T) {
 	rp.Start()
 	t.Cleanup(rp.Stop)
 
-	p, err := sw.transport.Dial(*rp.Addr(), peerConfig{
-		chDescs:      sw.chDescs,
-		onPeerError:  sw.StopPeerForError,
-		isPersistent: sw.IsPeerPersistent,
-		reactorsByCh: sw.reactorsByCh,
+	p, err := sw.transport.Dial(*rp.Addr(), PeerConfig{
+		ChDescs:      sw.chDescs,
+		OnPeerError:  sw.StopPeerForError,
+		IsPersistent: sw.IsPeerPersistent,
+		ReactorsByCh: sw.reactorsByCh,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -291,11 +291,11 @@ func TestSwitchPeerFilterTimeout(t *testing.T) {
 	rp.Start()
 	defer rp.Stop()
 
-	p, err := sw.transport.Dial(*rp.Addr(), peerConfig{
-		chDescs:      sw.chDescs,
-		onPeerError:  sw.StopPeerForError,
-		isPersistent: sw.IsPeerPersistent,
-		reactorsByCh: sw.reactorsByCh,
+	p, err := sw.transport.Dial(*rp.Addr(), PeerConfig{
+		ChDescs:      sw.chDescs,
+		OnPeerError:  sw.StopPeerForError,
+		IsPersistent: sw.IsPeerPersistent,
+		ReactorsByCh: sw.reactorsByCh,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -322,11 +322,11 @@ func TestSwitchPeerFilterDuplicate(t *testing.T) {
 	rp.Start()
 	defer rp.Stop()
 
-	p, err := sw.transport.Dial(*rp.Addr(), peerConfig{
-		chDescs:      sw.chDescs,
-		onPeerError:  sw.StopPeerForError,
-		isPersistent: sw.IsPeerPersistent,
-		reactorsByCh: sw.reactorsByCh,
+	p, err := sw.transport.Dial(*rp.Addr(), PeerConfig{
+		ChDescs:      sw.chDescs,
+		OnPeerError:  sw.StopPeerForError,
+		IsPersistent: sw.IsPeerPersistent,
+		ReactorsByCh: sw.reactorsByCh,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -372,11 +372,11 @@ func TestSwitchStopsNonPersistentPeerOnError(t *testing.T) {
 	rp.Start()
 	defer rp.Stop()
 
-	p, err := sw.transport.Dial(*rp.Addr(), peerConfig{
-		chDescs:      sw.chDescs,
-		onPeerError:  sw.StopPeerForError,
-		isPersistent: sw.IsPeerPersistent,
-		reactorsByCh: sw.reactorsByCh,
+	p, err := sw.transport.Dial(*rp.Addr(), PeerConfig{
+		ChDescs:      sw.chDescs,
+		OnPeerError:  sw.StopPeerForError,
+		IsPersistent: sw.IsPeerPersistent,
+		ReactorsByCh: sw.reactorsByCh,
 	})
 	require.Nil(err)
 
@@ -417,7 +417,7 @@ func TestSwitchStopPeerForError(t *testing.T) {
 
 	// make two connected switches
 	sw1, sw2 := MakeSwitchPair(t, func(i int, sw *Switch) *Switch {
-		// set metrics on sw1
+		// set Metrics on sw1
 		if i == 0 {
 			opt := WithMetrics(p2pMetrics)
 			opt(sw)
@@ -492,7 +492,7 @@ func TestSwitchReconnectsToOutboundPersistentPeer(t *testing.T) {
 	conf.TestDialFail = true // will trigger a reconnect
 	err = sw.addOutboundPeerWithConfig(rp.Addr(), conf)
 	require.NotNil(t, err)
-	// DialPeerWithAddres - sw.peerConfig resets the dialer
+	// DialPeerWithAddres - sw.PeerConfig resets the dialer
 	waitUntilSwitchHasAtLeastNPeers(sw, 2)
 	assert.Equal(t, 2, sw.Peers().Size())
 }
@@ -681,10 +681,10 @@ func (et errorTransport) NetAddress() NetAddress {
 	panic("not implemented")
 }
 
-func (et errorTransport) Accept(c peerConfig) (Peer, error) {
+func (et errorTransport) Accept(c PeerConfig) (Peer, error) {
 	return nil, et.acceptErr
 }
-func (errorTransport) Dial(NetAddress, peerConfig) (Peer, error) {
+func (errorTransport) Dial(NetAddress, PeerConfig) (Peer, error) {
 	panic("not implemented")
 }
 func (errorTransport) Cleanup(Peer) {

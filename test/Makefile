@@ -7,7 +7,11 @@ BINDIR ?= $(GOPATH)/bin
 
 ## required to be run first by most tests
 build_docker_test_image:
-	docker build -t tester -f ./test/docker/Dockerfile .
+    # for tendermint p2p
+	# docker build -t tester -f ./test/docker/Dockerfile .
+	# for libp2p
+	docker build -t tester-libp2p -f ./test/docker/Dockerfile-libp2p .
+
 .PHONY: build_docker_test_image
 
 ### coverage, app, persistence, and libs tests

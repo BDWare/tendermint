@@ -78,7 +78,7 @@ func TestTransportMultiplexConnFilter(t *testing.T) {
 		t.Errorf("connection failed: %v", err)
 	}
 
-	_, err = mt.Accept(peerConfig{})
+	_, err = mt.Accept(PeerConfig{})
 	if err, ok := err.(ErrRejected); ok {
 		if !err.IsFiltered() {
 			t.Errorf("expected peer to be filtered, got %v", err)
@@ -131,7 +131,7 @@ func TestTransportMultiplexConnFilterTimeout(t *testing.T) {
 		t.Errorf("connection failed: %v", err)
 	}
 
-	_, err = mt.Accept(peerConfig{})
+	_, err = mt.Accept(PeerConfig{})
 	if _, ok := err.(ErrFilterTimeout); !ok {
 		t.Errorf("expected ErrFilterTimeout, got %v", err)
 	}
@@ -173,7 +173,7 @@ func TestTransportMultiplexMaxIncomingConnections(t *testing.T) {
 			if err != nil {
 				t.Errorf("dialer connection failed: %v", err)
 			}
-			_, err = mt.Accept(peerConfig{})
+			_, err = mt.Accept(PeerConfig{})
 			if err != nil {
 				t.Errorf("connection failed: %v", err)
 			}
@@ -212,7 +212,7 @@ func TestTransportMultiplexAcceptMultiple(t *testing.T) {
 
 	// Accept all peers.
 	for i := 0; i < cap(errc); i++ {
-		p, err := mt.Accept(peerConfig{})
+		p, err := mt.Accept(PeerConfig{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -251,7 +251,7 @@ func testDialer(dialAddr NetAddress, errc chan error) {
 		)
 	)
 
-	_, err := dialer.Dial(dialAddr, peerConfig{})
+	_, err := dialer.Dial(dialAddr, PeerConfig{})
 	if err != nil {
 		errc <- err
 		return
@@ -329,7 +329,7 @@ func TestTransportMultiplexAcceptNonBlocking(t *testing.T) {
 		)
 		addr := NewNetAddress(mt.nodeKey.ID(), mt.listener.Addr())
 
-		_, err := dialer.Dial(*addr, peerConfig{})
+		_, err := dialer.Dial(*addr, PeerConfig{})
 		if err != nil {
 			errc <- err
 			return
@@ -344,7 +344,7 @@ func TestTransportMultiplexAcceptNonBlocking(t *testing.T) {
 		t.Logf("connection failed: %v", err)
 	}
 
-	p, err := mt.Accept(peerConfig{})
+	p, err := mt.Accept(PeerConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -372,7 +372,7 @@ func TestTransportMultiplexValidateNodeInfo(t *testing.T) {
 
 		addr := NewNetAddress(mt.nodeKey.ID(), mt.listener.Addr())
 
-		_, err := dialer.Dial(*addr, peerConfig{})
+		_, err := dialer.Dial(*addr, PeerConfig{})
 		if err != nil {
 			errc <- err
 			return
@@ -385,7 +385,7 @@ func TestTransportMultiplexValidateNodeInfo(t *testing.T) {
 		t.Errorf("connection failed: %v", err)
 	}
 
-	_, err := mt.Accept(peerConfig{})
+	_, err := mt.Accept(PeerConfig{})
 	if err, ok := err.(ErrRejected); ok {
 		if !err.IsNodeInfoInvalid() {
 			t.Errorf("expected NodeInfo to be invalid, got %v", err)
@@ -411,7 +411,7 @@ func TestTransportMultiplexRejectMissmatchID(t *testing.T) {
 		)
 		addr := NewNetAddress(mt.nodeKey.ID(), mt.listener.Addr())
 
-		_, err := dialer.Dial(*addr, peerConfig{})
+		_, err := dialer.Dial(*addr, PeerConfig{})
 		if err != nil {
 			errc <- err
 			return
@@ -424,7 +424,7 @@ func TestTransportMultiplexRejectMissmatchID(t *testing.T) {
 		t.Errorf("connection failed: %v", err)
 	}
 
-	_, err := mt.Accept(peerConfig{})
+	_, err := mt.Accept(PeerConfig{})
 	if err, ok := err.(ErrRejected); ok {
 		if !err.IsAuthFailure() {
 			t.Errorf("expected auth failure, got %v", err)
@@ -450,7 +450,7 @@ func TestTransportMultiplexDialRejectWrongID(t *testing.T) {
 	wrongID := PubKeyToID(ed25519.GenPrivKey().PubKey())
 	addr := NewNetAddress(wrongID, mt.listener.Addr())
 
-	_, err := dialer.Dial(*addr, peerConfig{})
+	_, err := dialer.Dial(*addr, PeerConfig{})
 	if err != nil {
 		t.Logf("connection failed: %v", err)
 		if err, ok := err.(ErrRejected); ok {
@@ -480,7 +480,7 @@ func TestTransportMultiplexRejectIncompatible(t *testing.T) {
 		)
 		addr := NewNetAddress(mt.nodeKey.ID(), mt.listener.Addr())
 
-		_, err := dialer.Dial(*addr, peerConfig{})
+		_, err := dialer.Dial(*addr, PeerConfig{})
 		if err != nil {
 			errc <- err
 			return
@@ -489,7 +489,7 @@ func TestTransportMultiplexRejectIncompatible(t *testing.T) {
 		close(errc)
 	}()
 
-	_, err := mt.Accept(peerConfig{})
+	_, err := mt.Accept(PeerConfig{})
 	if err, ok := err.(ErrRejected); ok {
 		if !err.IsIncompatible() {
 			t.Errorf("expected to reject incompatible, got %v", err)
@@ -507,7 +507,7 @@ func TestTransportMultiplexRejectSelf(t *testing.T) {
 	go func() {
 		addr := NewNetAddress(mt.nodeKey.ID(), mt.listener.Addr())
 
-		_, err := mt.Dial(*addr, peerConfig{})
+		_, err := mt.Dial(*addr, PeerConfig{})
 		if err != nil {
 			errc <- err
 			return
@@ -528,7 +528,7 @@ func TestTransportMultiplexRejectSelf(t *testing.T) {
 		t.Errorf("expected connection failure")
 	}
 
-	_, err := mt.Accept(peerConfig{})
+	_, err := mt.Accept(PeerConfig{})
 	if err, ok := err.(ErrRejected); ok {
 		if !err.IsSelf() {
 			t.Errorf("expected to reject self, got: %v", err)

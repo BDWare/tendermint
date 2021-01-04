@@ -1,4 +1,5 @@
-package p2p
+package libp2p
+
 
 import (
 	"fmt"
@@ -8,144 +9,67 @@ import (
 	"github.com/tendermint/tendermint/libs/cmap"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/libs/service"
-
+	"github.com/tendermint/tendermint/p2p"
 	tmconn "github.com/tendermint/tendermint/p2p/conn"
+	"github.com/tendermint/tendermint/p2p/libp2p/util"
+	"github.com/libp2p/go-libp2p-core/host"
 )
 
-//go:generate mockery --case underscore --name Peer
+var _ p2p.Peer = (*peer)(nil)
 
-const MetricsTickerDuration = 10 * time.Second
-
-// Peer is an interface representing a peer connected on a reactor.
-type Peer interface {
-	service.Service
-	FlushStop()
-
-	ID() ID               // peer's cryptographic ID
-	RemoteIP() net.IP     // remote IP of the connection
-	RemoteAddr() net.Addr // remote address of the connection
-
-	IsOutbound() bool   // did we dial the peer
-	IsPersistent() bool // do we redial this peer when we disconnect
-
-	CloseConn() error // close original connection
-
-	NodeInfo() NodeInfo // peer's info
-	Status() tmconn.ConnectionStatus
-	SocketAddr() *NetAddress // actual address of the socket
-
-	Send(byte, []byte) bool
-	TrySend(byte, []byte) bool
-
-	Set(string, interface{})
-	Get(string) interface{}
-}
-
-//----------------------------------------------------------
-
-// peerConn contains the raw connection and its config.
-type peerConn struct {
-	outbound   bool
-	persistent bool
-	conn       net.Conn // source connection
-
-	socketAddr *NetAddress
-
-	// cached RemoteIP()
-	ip net.IP
-}
-
-func newPeerConn(
-	outbound, persistent bool,
-	conn net.Conn,
-	socketAddr *NetAddress,
-) peerConn {
-
-	return peerConn{
-		outbound:   outbound,
-		persistent: persistent,
-		conn:       conn,
-		socketAddr: socketAddr,
-	}
-}
-
-// ID only exists for SecretConnection.
-// NOTE: Will panic if conn is not *SecretConnection.
-func (pc peerConn) ID() ID {
-	return PubKeyToID(pc.conn.(*tmconn.SecretConnection).RemotePubKey())
-}
-
-// Return the IP from the connection RemoteAddr
-func (pc peerConn) RemoteIP() net.IP {
-	if pc.ip != nil {
-		return pc.ip
-	}
-
-	host, _, err := net.SplitHostPort(pc.conn.RemoteAddr().String())
-	if err != nil {
-		panic(err)
-	}
-
-	ips, err := net.LookupIP(host)
-	if err != nil {
-		panic(err)
-	}
-
-	pc.ip = ips[0]
-
-	return pc.ip
-}
-
-// peer implements Peer.
-//
+// peer implements p2p.Peer.
 // Before using a peer, you will need to perform a handshake on connection.
 type peer struct {
 	service.BaseService
 
-	// raw peerConn and the multiplex connection
-	peerConn
-	mconn *tmconn.MConnection
+	outbound   bool
+	persistent bool
+	socketAddr *p2p.NetAddress
+
+	// our local peer host to send msg to this peer
+	host  host.Host
+	mconn *tmconn.Libp2pMConnection
 
 	// peer's node info and the channel it knows about
 	// channels = nodeInfo.Channels
 	// cached to avoid copying nodeInfo in hasChannel
-	nodeInfo NodeInfo
+	nodeInfo p2p.NodeInfo
 	channels []byte
 
 	// User data
 	Data *cmap.CMap
 
-	metrics       *Metrics
+	metrics       *p2p.Metrics
 	metricsTicker *time.Ticker
 }
 
 type PeerOption func(*peer)
 
 func newPeer(
-	pc peerConn,
-	mConfig tmconn.MConnConfig,
-	nodeInfo NodeInfo,
-	reactorsByCh map[byte]Reactor,
+	host host.Host,
+	nodeInfo p2p.NodeInfo,
+	ss *streams,
+	reactorsByCh map[byte]p2p.Reactor,
 	chDescs []*tmconn.ChannelDescriptor,
-	onPeerError func(Peer, interface{}),
+	onPeerError func(p2p.Peer, interface{}),
 	options ...PeerOption,
 ) *peer {
 	p := &peer{
-		peerConn:      pc,
+		host:          host,
 		nodeInfo:      nodeInfo,
-		channels:      nodeInfo.(DefaultNodeInfo).Channels, // TODO
+		channels:      nodeInfo.(p2p.DefaultNodeInfo).Channels, // TODO
 		Data:          cmap.NewCMap(),
-		metricsTicker: time.NewTicker(MetricsTickerDuration),
-		metrics:       NopMetrics(),
+		metricsTicker: time.NewTicker(p2p.MetricsTickerDuration),
+		metrics:       p2p.NopMetrics(),
 	}
 
-	p.mconn = createMConnection(
-		pc.conn,
+	p.mconn = createLpMConnection(
+		host,
 		p,
+		ss,
 		reactorsByCh,
 		chDescs,
 		onPeerError,
-		mConfig,
 	)
 	p.BaseService = *service.NewBaseService(nil, "Peer", p)
 	for _, option := range options {
@@ -158,10 +82,10 @@ func newPeer(
 // String representation.
 func (p *peer) String() string {
 	if p.outbound {
-		return fmt.Sprintf("Peer{%v %v out}", p.mconn, p.ID())
+		return fmt.Sprintf("Peer{%v %v out}", p.RemoteAddr(), p.ID())
 	}
 
-	return fmt.Sprintf("Peer{%v %v in}", p.mconn, p.ID())
+	return fmt.Sprintf("Peer{%v %v in}", p.RemoteAddr(), p.ID())
 }
 
 //---------------------------------------------------
@@ -200,45 +124,47 @@ func (p *peer) FlushStop() {
 func (p *peer) OnStop() {
 	p.metricsTicker.Stop()
 	p.BaseService.OnStop()
-	if err := p.mconn.Stop(); err != nil { // stop everything and close the conn
-		p.Logger.Debug("Error while stopping peer", "err", err)
-	}
+	p.mconn.Stop() // stop everything and close the conn
 }
 
 //---------------------------------------------------
 // Implements Peer
 
-// ID returns the peer's ID - the hex encoded hash of its pubkey.
-func (p *peer) ID() ID {
+// ID returns the peer's ID
+func (p *peer) ID() p2p.ID {
 	return p.nodeInfo.ID()
 }
 
-// IsOutbound returns true if the connection is Outbound, false otherwise.
+func (p *peer) RemoteIP() net.IP {
+	return p.socketAddr.IP
+}
+
+// IsOutbound returns true if the connection is outbound, false otherwise.
 func (p *peer) IsOutbound() bool {
-	return p.peerConn.outbound
+	return p.outbound
 }
 
 // IsPersistent returns true if the peer is persitent, false otherwise.
 func (p *peer) IsPersistent() bool {
-	return p.peerConn.persistent
+	return p.persistent
 }
 
 // NodeInfo returns a copy of the peer's NodeInfo.
-func (p *peer) NodeInfo() NodeInfo {
+func (p *peer) NodeInfo() p2p.NodeInfo {
 	return p.nodeInfo
 }
 
 // SocketAddr returns the address of the socket.
-// For Outbound peers, it's the address dialed (after DNS resolution).
+// For outbound peers, it's the address dialed (after DNS resolution).
 // For inbound peers, it's the address returned by the underlying connection
 // (not what's reported in the peer's NodeInfo).
-func (p *peer) SocketAddr() *NetAddress {
-	return p.peerConn.socketAddr
+func (p *peer) SocketAddr() *p2p.NetAddress {
+	return p.socketAddr
 }
 
-// Status returns the peer's ConnectionStatus.
+// Status returns the peer's ConnectionStatus. not used
 func (p *peer) Status() tmconn.ConnectionStatus {
-	return p.mconn.Status()
+	return tmconn.ConnectionStatus{}
 }
 
 // Send msg bytes to the channel identified by chID byte. Returns false if the
@@ -251,6 +177,8 @@ func (p *peer) Send(chID byte, msgBytes []byte) bool {
 	} else if !p.hasChannel(chID) {
 		return false
 	}
+	//s := p.stream
+	//err := p.sendBytesTo(s, msgBytes, chID)
 	res := p.mconn.Send(chID, msgBytes)
 	if res {
 		labels := []string{
@@ -311,26 +239,22 @@ func (p *peer) hasChannel(chID byte) bool {
 	return false
 }
 
-// CloseConn closes original connection. Used for cleaning up in cases where the peer had not been started at all.
+// CloseConn closes libp2p connection
 func (p *peer) CloseConn() error {
-	return p.peerConn.conn.Close()
+	return p.host.Network().ClosePeer(util.ID2Libp2pID(p.ID()))
 }
 
 //---------------------------------------------------
 // methods only used for testing
 // TODO: can we remove these?
 
-// CloseConn closes the underlying connection
-func (pc *peerConn) CloseConn() {
-	pc.conn.Close()
-}
-
 // RemoteAddr returns peer's remote network address.
 func (p *peer) RemoteAddr() net.Addr {
-	return p.peerConn.conn.RemoteAddr()
+	// not sure
+	return &net.TCPAddr{IP: p.socketAddr.IP, Port: (int)(p.socketAddr.Port)}
 }
 
-// CanSend returns true if the send queue is not full, false otherwise.
+// CanSend returns true if the stream exists, false otherwise.
 func (p *peer) CanSend(chID byte) bool {
 	if !p.IsRunning() {
 		return false
@@ -340,7 +264,7 @@ func (p *peer) CanSend(chID byte) bool {
 
 //---------------------------------------------------
 
-func PeerMetrics(metrics *Metrics) PeerOption {
+func PeerMetrics(metrics *p2p.Metrics) PeerOption {
 	return func(p *peer) {
 		p.metrics = metrics
 	}
@@ -366,20 +290,20 @@ func (p *peer) metricsReporter() {
 //------------------------------------------------------------------
 // helper funcs
 
-func createMConnection(
-	conn net.Conn,
+func createLpMConnection(
+	host host.Host,
 	p *peer,
-	reactorsByCh map[byte]Reactor,
+	ss *streams,
+	reactorsByCh map[byte]p2p.Reactor,
 	chDescs []*tmconn.ChannelDescriptor,
-	onPeerError func(Peer, interface{}),
-	config tmconn.MConnConfig,
-) *tmconn.MConnection {
+	onPeerError func(p2p.Peer, interface{}),
+) *tmconn.Libp2pMConnection {
 
 	onReceive := func(chID byte, msgBytes []byte) {
 		reactor := reactorsByCh[chID]
 		if reactor == nil {
 			// Note that its ok to panic here as it's caught in the conn._recover,
-			// which does OnPeerError.
+			// which does onPeerError.
 			panic(fmt.Sprintf("Unknown channel %X", chID))
 		}
 		labels := []string{
@@ -394,11 +318,17 @@ func createMConnection(
 		onPeerError(p, r)
 	}
 
-	return tmconn.NewMConnectionWithConfig(
-		conn,
+	peerID := util.ID2Libp2pID(p.ID())
+
+	// TODO: set protocolPrefix via config
+	return tmconn.NewLibp2pMConnection(
+		protocolPrefix,
+		host,
+		peerID,
+		ss.pingStream,
+		ss.chStream,
 		chDescs,
 		onReceive,
 		onError,
-		config,
 	)
 }

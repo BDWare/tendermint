@@ -9,6 +9,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	lppeer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/multiformats/go-multiaddr"
+	lputil "github.com/tendermint/tendermint/p2p/libp2p/util"
+	"github.com/tendermint/tendermint/p2p/peerid"
 	"net"
 	"strconv"
 	"strings"
@@ -133,6 +137,40 @@ func NewNetAddressIPPort(ip net.IP, port uint16) *NetAddress {
 	return &NetAddress{
 		IP:   ip,
 		Port: port,
+	}
+}
+
+func NewNetAddressLibp2pIDMultiaddr(id lppeer.ID, ma multiaddr.Multiaddr) *NetAddress {
+	s := ma.String() // for example "/ip4/127.0.0.1/udp/1234"
+	//s = s[5:]
+	parts := strings.Split(s, "/")
+	port, _ := strconv.Atoi(parts[4])
+	return &NetAddress{
+		ID:   lputil.Libp2pID2ID(id),
+		Port: uint16(port),
+		IP:   net.ParseIP(parts[2]),
+	}
+}
+
+func MultiaddrFromNetAddress(na NetAddress) multiaddr.Multiaddr {
+	var prefix string
+	ipStr := na.IP.String()
+	if strings.Count(ipStr, ":") < 2 {
+		prefix = "/ip4/"
+	} else {
+		prefix = "/ip6/"
+	}
+	// tcp or udp or others?
+	str := prefix + ipStr + "/tcp/" + strconv.FormatUint(uint64(na.Port), 10)
+	ma, _ := multiaddr.NewMultiaddr(str)
+	return ma
+}
+
+func LpAddrInfoFromNetAddress(na NetAddress) lppeer.AddrInfo {
+	maddr := MultiaddrFromNetAddress(na)
+	return lppeer.AddrInfo{
+		Addrs: []multiaddr.Multiaddr{maddr},
+		ID:    lputil.ID2Libp2pID(na.ID),
 	}
 }
 
@@ -409,12 +447,18 @@ func validateID(id ID) error {
 	if len(id) == 0 {
 		return errors.New("no ID")
 	}
-	idBytes, err := hex.DecodeString(string(id))
-	if err != nil {
-		return err
-	}
-	if len(idBytes) != IDByteLength {
-		return fmt.Errorf("invalid hex length - got %d, expected %d", len(idBytes), IDByteLength)
+	// Check if id is libp2p ID first
+	if len(string(id)) != 59 && len(string(id)) != 46 && len(string(id)) != 52 {
+		// Try to decode tdm hex ID
+		idBytes, err := hex.DecodeString(string(id))
+		if err != nil {
+			return fmt.Errorf("invalid libp2p ID length - got %d, expected 59, 46 or 52", len(idBytes))
+		}
+		if len(idBytes) != peerid.IDByteLength {
+			return fmt.Errorf(
+				"invalid tendermint hex ID length - got %d, expected %d", len(idBytes), peerid.IDByteLength)
+		}
+		return nil
 	}
 	return nil
 }

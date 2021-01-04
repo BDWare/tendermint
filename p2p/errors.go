@@ -182,3 +182,48 @@ type ErrCurrentlyDialingOrExistingAddress struct {
 func (e ErrCurrentlyDialingOrExistingAddress) Error() string {
 	return fmt.Sprintf("connection with %s has been established or dialed", e.Addr)
 }
+
+func NewIsSelfErrRejected(addr NetAddress, err error, id ID) ErrRejected {
+	return ErrRejected{
+		addr:   addr,
+		err:    err,
+		id:     id,
+		isSelf: true,
+	}
+}
+
+func NewIsAuthFailureErrRejected(addr NetAddress, err error, id ID) ErrRejected {
+	return ErrRejected{
+		addr:          addr,
+		err:           err,
+		id:            id,
+		isAuthFailure: true,
+	}
+}
+
+func NewNodeInfoInvalidErrRejected(addr NetAddress, err error, id ID) ErrRejected {
+	return ErrRejected{
+		addr:              addr,
+		err:               err,
+		id:                id,
+		isNodeInfoInvalid: true,
+	}
+}
+
+func NewIncompatibleErrRejected(addr NetAddress, err error, id ID) ErrRejected {
+	return ErrRejected{
+		addr:           addr,
+		err:            err,
+		id:             id,
+		isIncompatible: true,
+	}
+}
+
+func NewIsDuplicateErrRejected(addr NetAddress, err error, id ID) ErrRejected {
+	return ErrRejected{
+		addr:        addr,
+		err:         err,
+		id:          id,
+		isDuplicate: true,
+	}
+}

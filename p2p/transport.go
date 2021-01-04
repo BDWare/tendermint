@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	defaultDialTimeout      = time.Second
-	defaultFilterTimeout    = 5 * time.Second
-	defaultHandshakeTimeout = 3 * time.Second
+	DefaultDialTimeout      = time.Second
+	DefaultFilterTimeout    = 5 * time.Second
+	DefaultHandshakeTimeout = 3 * time.Second
 )
 
 // IPResolver is a behaviour subset of net.Resolver.
@@ -34,22 +34,22 @@ type accept struct {
 	err      error
 }
 
-// peerConfig is used to bundle data we need to fully setup a Peer with an
+// PeerConfig is used to bundle data we need to fully setup a Peer with an
 // MConn, provided by the caller of Accept and Dial (currently the Switch). This
 // a temporary measure until reactor setup is less dynamic and we introduce the
 // concept of PeerBehaviour to communicate about significant Peer lifecycle
 // events.
 // TODO(xla): Refactor out with more static Reactor setup and PeerBehaviour.
-type peerConfig struct {
-	chDescs     []*conn.ChannelDescriptor
-	onPeerError func(Peer, interface{})
-	outbound    bool
-	// isPersistent allows you to set a function, which, given socket address
-	// (for outbound peers) OR self-reported address (for inbound peers), tells
+type PeerConfig struct {
+	ChDescs     []*conn.ChannelDescriptor
+	OnPeerError func(Peer, interface{})
+	Outbound    bool
+	// IsPersistent allows you to set a function, which, given socket address
+	// (for Outbound peers) OR self-reported address (for inbound peers), tells
 	// if the peer is persistent or not.
-	isPersistent func(*NetAddress) bool
-	reactorsByCh map[byte]Reactor
-	metrics      *Metrics
+	IsPersistent func(*NetAddress) bool
+	ReactorsByCh map[byte]Reactor
+	Metrics      *Metrics
 }
 
 // Transport emits and connects to Peers. The implementation of Peer is left to
@@ -60,18 +60,18 @@ type Transport interface {
 	NetAddress() NetAddress
 
 	// Accept returns a newly connected Peer.
-	Accept(peerConfig) (Peer, error)
+	Accept(PeerConfig) (Peer, error)
 
 	// Dial connects to the Peer for the address.
-	Dial(NetAddress, peerConfig) (Peer, error)
+	Dial(NetAddress, PeerConfig) (Peer, error)
 
 	// Cleanup any resources associated with Peer.
 	Cleanup(Peer)
 }
 
-// transportLifecycle bundles the methods for callers to control start and stop
+// TransportLifecycle bundles the methods for callers to control start and stop
 // behaviour.
-type transportLifecycle interface {
+type TransportLifecycle interface {
 	Close() error
 	Listen(NetAddress) error
 }
@@ -159,7 +159,7 @@ type MultiplexTransport struct {
 
 // Test multiplexTransport for interface completeness.
 var _ Transport = (*MultiplexTransport)(nil)
-var _ transportLifecycle = (*MultiplexTransport)(nil)
+var _ TransportLifecycle = (*MultiplexTransport)(nil)
 
 // NewMultiplexTransport returns a tcp connected multiplexed peer.
 func NewMultiplexTransport(
@@ -170,9 +170,9 @@ func NewMultiplexTransport(
 	return &MultiplexTransport{
 		acceptc:          make(chan accept),
 		closec:           make(chan struct{}),
-		dialTimeout:      defaultDialTimeout,
-		filterTimeout:    defaultFilterTimeout,
-		handshakeTimeout: defaultHandshakeTimeout,
+		dialTimeout:      DefaultDialTimeout,
+		filterTimeout:    DefaultFilterTimeout,
+		handshakeTimeout: DefaultHandshakeTimeout,
 		mConfig:          mConfig,
 		nodeInfo:         nodeInfo,
 		nodeKey:          nodeKey,
@@ -187,7 +187,7 @@ func (mt *MultiplexTransport) NetAddress() NetAddress {
 }
 
 // Accept implements Transport.
-func (mt *MultiplexTransport) Accept(cfg peerConfig) (Peer, error) {
+func (mt *MultiplexTransport) Accept(cfg PeerConfig) (Peer, error) {
 	select {
 	// This case should never have any side-effectful/blocking operations to
 	// ensure that quality peers are ready to be used.
@@ -196,7 +196,7 @@ func (mt *MultiplexTransport) Accept(cfg peerConfig) (Peer, error) {
 			return nil, a.err
 		}
 
-		cfg.outbound = false
+		cfg.Outbound = false
 
 		return mt.wrapPeer(a.conn, a.nodeInfo, cfg, a.netAddr), nil
 	case <-mt.closec:
@@ -207,7 +207,7 @@ func (mt *MultiplexTransport) Accept(cfg peerConfig) (Peer, error) {
 // Dial implements Transport.
 func (mt *MultiplexTransport) Dial(
 	addr NetAddress,
-	cfg peerConfig,
+	cfg PeerConfig,
 ) (Peer, error) {
 	c, err := addr.DialTimeout(mt.dialTimeout)
 	if err != nil {
@@ -224,14 +224,14 @@ func (mt *MultiplexTransport) Dial(
 		return nil, err
 	}
 
-	cfg.outbound = true
+	cfg.Outbound = true
 
 	p := mt.wrapPeer(secretConn, nodeInfo, cfg, &addr)
 
 	return p, nil
 }
 
-// Close implements transportLifecycle.
+// Close implements TransportLifecycle.
 func (mt *MultiplexTransport) Close() error {
 	close(mt.closec)
 
@@ -242,7 +242,7 @@ func (mt *MultiplexTransport) Close() error {
 	return nil
 }
 
-// Listen implements transportLifecycle.
+// Listen implements TransportLifecycle.
 func (mt *MultiplexTransport) Listen(addr NetAddress) error {
 	ln, err := net.Listen("tcp", addr.DialString())
 	if err != nil {
@@ -478,24 +478,24 @@ func (mt *MultiplexTransport) upgrade(
 func (mt *MultiplexTransport) wrapPeer(
 	c net.Conn,
 	ni NodeInfo,
-	cfg peerConfig,
+	cfg PeerConfig,
 	socketAddr *NetAddress,
 ) Peer {
 
 	persistent := false
-	if cfg.isPersistent != nil {
-		if cfg.outbound {
-			persistent = cfg.isPersistent(socketAddr)
+	if cfg.IsPersistent != nil {
+		if cfg.Outbound {
+			persistent = cfg.IsPersistent(socketAddr)
 		} else {
 			selfReportedAddr, err := ni.NetAddress()
 			if err == nil {
-				persistent = cfg.isPersistent(selfReportedAddr)
+				persistent = cfg.IsPersistent(selfReportedAddr)
 			}
 		}
 	}
 
 	peerConn := newPeerConn(
-		cfg.outbound,
+		cfg.Outbound,
 		persistent,
 		c,
 		socketAddr,
@@ -505,10 +505,10 @@ func (mt *MultiplexTransport) wrapPeer(
 		peerConn,
 		mt.mConfig,
 		ni,
-		cfg.reactorsByCh,
-		cfg.chDescs,
-		cfg.onPeerError,
-		PeerMetrics(cfg.metrics),
+		cfg.ReactorsByCh,
+		cfg.ChDescs,
+		cfg.OnPeerError,
+		PeerMetrics(cfg.Metrics),
 	)
 
 	return p

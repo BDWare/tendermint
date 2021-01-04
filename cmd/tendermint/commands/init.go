@@ -2,13 +2,14 @@ package commands
 
 import (
 	"fmt"
+	"github.com/tendermint/tendermint/p2p"
+	"github.com/tendermint/tendermint/p2p/libp2p"
 
 	"github.com/spf13/cobra"
 
 	cfg "github.com/tendermint/tendermint/config"
 	tmos "github.com/tendermint/tendermint/libs/os"
 	tmrand "github.com/tendermint/tendermint/libs/rand"
-	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/privval"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	"github.com/tendermint/tendermint/types"
@@ -61,8 +62,14 @@ func initFilesWithConfig(config *cfg.Config) error {
 	if tmos.FileExists(nodeKeyFile) {
 		logger.Info("Found node key", "path", nodeKeyFile)
 	} else {
-		if _, err := p2p.LoadOrGenNodeKey(nodeKeyFile); err != nil {
-			return err
+		if !config.P2P.Libp2p {
+			if _, err := p2p.LoadOrGenNodeKey(nodeKeyFile); err != nil {
+				return err
+			}
+		} else {
+			if _, err := libp2p.LoadOrGenLpNodeKey(nodeKeyFile); err != nil {
+				return err
+			}
 		}
 		logger.Info("Generated node key", "path", nodeKeyFile)
 	}

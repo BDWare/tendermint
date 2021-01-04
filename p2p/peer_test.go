@@ -101,7 +101,7 @@ func createOutboundPeerAndPerformHandshake(
 
 func testDial(addr *NetAddress, cfg *config.P2PConfig) (net.Conn, error) {
 	if cfg.TestDialFail {
-		return nil, fmt.Errorf("dial err (peerConfig.DialFail == true)")
+		return nil, fmt.Errorf("dial err (PeerConfig.DialFail == true)")
 	}
 
 	conn, err := addr.DialTimeout(cfg.DialTimeout)

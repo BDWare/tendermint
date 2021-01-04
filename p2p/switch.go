@@ -117,7 +117,7 @@ func NewSwitch(
 		reconnecting:         cmap.NewCMap(),
 		metrics:              NopMetrics(),
 		transport:            transport,
-		filterTimeout:        defaultFilterTimeout,
+		filterTimeout:        DefaultFilterTimeout,
 		persistentPeersAddrs: make([]*NetAddress, 0),
 		unconditionalPeerIDs: make(map[ID]struct{}),
 	}
@@ -144,7 +144,7 @@ func SwitchPeerFilters(filters ...PeerFilterFunc) SwitchOption {
 	return func(sw *Switch) { sw.peerFilters = filters }
 }
 
-// WithMetrics sets the metrics.
+// WithMetrics sets the Metrics.
 func WithMetrics(metrics *Metrics) SwitchOption {
 	return func(sw *Switch) { sw.metrics = metrics }
 }
@@ -284,7 +284,7 @@ func (sw *Switch) Broadcast(chID byte, msgBytes []byte) chan bool {
 	return successChan
 }
 
-// NumPeers returns the count of outbound/inbound and outbound-dialing peers.
+// NumPeers returns the count of Outbound/inbound and Outbound-dialing peers.
 // unconditional peers are not counted here.
 func (sw *Switch) NumPeers() (outbound, inbound, dialing int) {
 	peers := sw.peers.List()
@@ -308,7 +308,7 @@ func (sw *Switch) IsPeerUnconditional(id ID) bool {
 	return ok
 }
 
-// MaxNumOutboundPeers returns a maximum number of outbound peers.
+// MaxNumOutboundPeers returns a maximum number of Outbound peers.
 func (sw *Switch) MaxNumOutboundPeers() int {
 	return sw.config.MaxNumOutboundPeers
 }
@@ -331,7 +331,7 @@ func (sw *Switch) StopPeerForError(peer Peer, reason interface{}) {
 
 	if peer.IsPersistent() {
 		var addr *NetAddress
-		if peer.IsOutbound() { // socket address for outbound peers
+		if peer.IsOutbound() { // socket address for Outbound peers
 			addr = peer.SocketAddr()
 		} else { // self-reported address for inbound peers
 			var err error
@@ -617,12 +617,12 @@ func (sw *Switch) IsPeerPersistent(na *NetAddress) bool {
 
 func (sw *Switch) acceptRoutine() {
 	for {
-		p, err := sw.transport.Accept(peerConfig{
-			chDescs:      sw.chDescs,
-			onPeerError:  sw.StopPeerForError,
-			reactorsByCh: sw.reactorsByCh,
-			metrics:      sw.metrics,
-			isPersistent: sw.IsPeerPersistent,
+		p, err := sw.transport.Accept(PeerConfig{
+			ChDescs:      sw.chDescs,
+			OnPeerError:  sw.StopPeerForError,
+			ReactorsByCh: sw.reactorsByCh,
+			Metrics:      sw.metrics,
+			IsPersistent: sw.IsPeerPersistent,
 		})
 		if err != nil {
 			switch err := err.(type) {
@@ -717,15 +717,15 @@ func (sw *Switch) addOutboundPeerWithConfig(
 	// XXX(xla): Remove the leakage of test concerns in implementation.
 	if cfg.TestDialFail {
 		go sw.reconnectToPeer(addr)
-		return fmt.Errorf("dial err (peerConfig.DialFail == true)")
+		return fmt.Errorf("dial err (PeerConfig.DialFail == true)")
 	}
 
-	p, err := sw.transport.Dial(*addr, peerConfig{
-		chDescs:      sw.chDescs,
-		onPeerError:  sw.StopPeerForError,
-		isPersistent: sw.IsPeerPersistent,
-		reactorsByCh: sw.reactorsByCh,
-		metrics:      sw.metrics,
+	p, err := sw.transport.Dial(*addr, PeerConfig{
+		ChDescs:      sw.chDescs,
+		OnPeerError:  sw.StopPeerForError,
+		IsPersistent: sw.IsPeerPersistent,
+		ReactorsByCh: sw.reactorsByCh,
+		Metrics:      sw.metrics,
 	})
 	if err != nil {
 		if e, ok := err.(ErrRejected); ok {
@@ -835,4 +835,37 @@ func (sw *Switch) addPeer(p Peer) error {
 	sw.Logger.Info("Added peer", "peer", p)
 
 	return nil
+}
+
+// ------------------------------------
+
+// Used by libp2p Transport to add outbound
+// peers which was connected by dht discovery.
+var _ PeerManager = (*Switch)(nil)
+
+func (sw *Switch) AddPeer(p Peer) {
+	if err := sw.addPeer(p); err != nil {
+		sw.transport.Cleanup(p)
+		if p.IsRunning() {
+			_ = p.Stop()
+		}
+	}
+}
+
+func (sw *Switch) DefaultOutBoundPeerConfig() PeerConfig {
+	return PeerConfig{
+		ChDescs:      sw.chDescs,
+		OnPeerError:  sw.StopPeerForError,
+		Outbound:     true,
+		ReactorsByCh: sw.reactorsByCh,
+		IsPersistent: sw.IsPeerPersistent,
+		Metrics:      sw.metrics,
+	}
+}
+
+// ------------------------------------
+
+type PeerManager interface {
+	AddPeer(p Peer)
+	DefaultOutBoundPeerConfig() PeerConfig
 }

@@ -2,6 +2,8 @@ package p2p
 
 import (
 	"encoding/hex"
+	lpkey "github.com/tendermint/tendermint/crypto/libp2p"
+	lputil "github.com/tendermint/tendermint/p2p/libp2p/util"
 	"io/ioutil"
 
 	"github.com/tendermint/tendermint/crypto"
@@ -11,11 +13,11 @@ import (
 )
 
 // ID is a hex-encoded crypto.Address
-type ID string
+//type ID string
 
 // IDByteLength is the length of a crypto.Address. Currently only 20.
 // TODO: support other length addresses ?
-const IDByteLength = crypto.AddressSize
+//const IDByteLength = crypto.AddressSize
 
 //------------------------------------------------------------------------------
 // Persistent peer ID
@@ -40,6 +42,16 @@ func (nodeKey *NodeKey) PubKey() crypto.PubKey {
 // PubKeyToID returns the ID corresponding to the given PubKey.
 // It's the hex-encoding of the pubKey.Address().
 func PubKeyToID(pubKey crypto.PubKey) ID {
+	if _, ok := pubKey.(lpkey.PubKey); ok {
+		return lputil.PubKeyToID(pubKey)
+	} else {
+		return pubKeyToID(pubKey)
+	}
+}
+
+// pubKeyToID returns the ID corresponding to the given PubKey for Tendermint P2P.
+// It's the hex-encoding of the pubKey.Address().
+func pubKeyToID(pubKey crypto.PubKey) ID {
 	return ID(hex.EncodeToString(pubKey.Address()))
 }
 

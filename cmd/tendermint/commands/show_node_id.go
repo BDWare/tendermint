@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"github.com/tendermint/tendermint/p2p/libp2p"
 
 	"github.com/spf13/cobra"
 
@@ -16,7 +17,18 @@ var ShowNodeIDCmd = &cobra.Command{
 }
 
 func showNodeID(cmd *cobra.Command, args []string) error {
-	nodeKey, err := p2p.LoadNodeKey(config.NodeKeyFile())
+	// TODO: refactor the following to a common function used by init/gen_node_key/show_node_id/testnet
+	// like p2p.LoadNodeKey(path string, isLibp2p bool)
+	var (
+		nodeKey *p2p.NodeKey
+		err     error
+	)
+	if !config.P2P.Libp2p {
+		nodeKey, err = p2p.LoadNodeKey(config.NodeKeyFile())
+	} else {
+		nodeKey, err = libp2p.LoadLpNodeKey(config.NodeKeyFile())
+	}
+
 	if err != nil {
 		return err
 	}

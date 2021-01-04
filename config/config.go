@@ -547,6 +547,9 @@ type P2PConfig struct { //nolint: maligned
 	// Testing params.
 	// Force dial to fail
 	TestDialFail bool `mapstructure:"test_dial_fail"`
+
+	// whether to use libp2p
+	Libp2p bool `mapstructure:"libp2p"`
 }
 
 // DefaultP2PConfig returns a default configuration for the peer-to-peer layer
