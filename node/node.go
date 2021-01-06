@@ -5,17 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/tendermint/tendermint/p2p/libp2p"
-	lputil "github.com/tendermint/tendermint/p2p/libp2p/util"
-	myp2p "github.com/tendermint/tendermint/test/builtin/libp2p"
 	"net"
 	"net/http"
 	_ "net/http/pprof" // nolint: gosec // securely exposed on separate, optional port
 	"strings"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
@@ -37,6 +33,8 @@ import (
 	"github.com/tendermint/tendermint/light"
 	mempl "github.com/tendermint/tendermint/mempool"
 	"github.com/tendermint/tendermint/p2p"
+	"github.com/tendermint/tendermint/p2p/libp2p"
+	lputil "github.com/tendermint/tendermint/p2p/libp2p/util"
 	"github.com/tendermint/tendermint/p2p/pex"
 	"github.com/tendermint/tendermint/privval"
 	"github.com/tendermint/tendermint/proxy"
@@ -49,6 +47,7 @@ import (
 	"github.com/tendermint/tendermint/state/txindex/null"
 	"github.com/tendermint/tendermint/statesync"
 	"github.com/tendermint/tendermint/store"
+	myp2p "github.com/tendermint/tendermint/test/builtin/libp2p"
 	"github.com/tendermint/tendermint/types"
 	tmtime "github.com/tendermint/tendermint/types/time"
 	"github.com/tendermint/tendermint/version"
@@ -94,25 +93,20 @@ type Provider func(*cfg.Config, log.Logger) (*Node, error)
 func DefaultNewNode(config *cfg.Config, logger log.Logger) (*Node, error) {
 	var (
 		nodeKey *p2p.NodeKey
+		host 	host.Host
 		err     error
 	)
 	if !config.P2P.Libp2p {
-		nodeKey, err = p2p.LoadOrGenNodeKey(config.NodeKeyFile())
-		if err != nil {
+		if nodeKey, err = p2p.LoadOrGenNodeKey(config.NodeKeyFile()); err != nil {
 			return nil, fmt.Errorf("failed to load or gen node key %s: %w", config.NodeKeyFile(), err)
 		}
-	}
-
-	var host host.Host
-	if config.P2P.Libp2p {
-		host, err = myp2p.NewP2PHost(context.Background(), config)
-		if err != nil {
+	} else {
+		if host, err = myp2p.NewP2PHost(context.Background(), config); err != nil {
 			return nil, fmt.Errorf("failed to create new libp2p host: %w", err)
 		}
-		fmt.Println("host.ID", host.ID())
-		fmt.Println("host.Addrs:", host.Addrs())
-
+		logger.Info("Libp2p host created", "host.ID", host.ID(), "host.Addrs:", host.Addrs())
 	}
+
 	pval, err := privval.LoadOrGenFilePV(config.PrivValidatorKeyFile(), config.PrivValidatorStateFile())
 	if err != nil {
 		return nil, err
@@ -727,13 +721,14 @@ func NewNode(config *cfg.Config,
 	logger log.Logger,
 	host host.Host,
 	options ...Option) (*Node, error) {
-	var libp2pID peer.ID
 	if config.P2P.Libp2p {
+		if host == nil {
+			return nil, fmt.Errorf("no libp2p host provided")
+		}
 		// If use libp2p, we don't need a pex any longer
 		config.P2P.PexReactor = false
 		// The parameter nodeKey is useless, overwrite it with libp2p private key
-		libp2pID = host.ID()
-		nodeKey = libp2p.GetNodeKeyFromLpPrivKey(host.Peerstore().PrivKey(libp2pID))
+		nodeKey = libp2p.GetNodeKeyFromLpPrivKey(host.Peerstore().PrivKey(host.ID()))
 	}
 	blockStore, stateDB, err := initDBs(config, dbProvider)
 	if err != nil {
@@ -953,7 +948,7 @@ func NewNode(config *cfg.Config,
 		txIndexer:        txIndexer,
 		indexerService:   indexerService,
 		eventBus:         eventBus,
-		host: host,
+		host:			  host,
 	}
 	node.BaseService = *service.NewBaseService(logger, "Node", node)
 

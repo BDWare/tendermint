@@ -573,6 +573,7 @@ func DefaultP2PConfig() *P2PConfig {
 		HandshakeTimeout:             20 * time.Second,
 		DialTimeout:                  3 * time.Second,
 		TestDialFail:                 false,
+		Libp2p: false,
 	}
 }
 

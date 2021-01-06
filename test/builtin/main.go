@@ -103,7 +103,7 @@ func newTendermint(app abci.Application, configFile string) (*nm.Node, error) {
 
 	var nodeKey *p2p.NodeKey
 	if !config.P2P.Libp2p {
-		//read node key
+		// read node key
 		if nodeKey, err = p2p.LoadNodeKey(config.NodeKeyFile()); err != nil {
 			return nil, fmt.Errorf("failed to load node's key: %w", err)
 		}
@@ -115,8 +115,7 @@ func newTendermint(app abci.Application, configFile string) (*nm.Node, error) {
 		if host, err = libp2p.NewP2PHost(context.Background(), config); err != nil {
 			return nil, fmt.Errorf("failed to create new libp2p host: %w", err)
 		}
-		fmt.Println("host.ID:", host.ID())
-		fmt.Println("host.Addrs:", host.Addrs())
+		logger.Info("Libp2p host created", "host.ID", host.ID(), "host.Addrs:", host.Addrs())
 	}
 
 	// create node
