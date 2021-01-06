@@ -50,6 +50,9 @@ type Manifest struct {
 	// KeyType sets the curve that will be used by validators.
 	// Options are ed25519 & secp256k1
 	KeyType string `toml:"key_type"`
+
+	// Libp2p indicates whether to use libp2p
+	Libp2p bool `toml:"libp2p"`
 }
 
 // ManifestNode represents a node in a testnet manifest.

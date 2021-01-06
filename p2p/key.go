@@ -94,6 +94,15 @@ func LoadNodeKey(filePath string) (*NodeKey, error) {
 
 // SaveAs persists the NodeKey to filePath.
 func (nodeKey *NodeKey) SaveAs(filePath string) error {
+	// libp2p keys
+	// TODO: modify this after determining how the libp2p key is stored
+	if key, ok := nodeKey.PrivKey.(lpkey.PrivKey); ok {
+		if err := ioutil.WriteFile(filePath, key.Bytes(), 0600); err != nil {
+			return err
+		}
+		return nil
+	}
+	// tendermint keys
 	jsonBytes, err := tmjson.Marshal(nodeKey)
 	if err != nil {
 		return err

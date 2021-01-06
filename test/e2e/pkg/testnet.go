@@ -12,9 +12,13 @@ import (
 	"strconv"
 	"strings"
 
+	lpcrypto "github.com/libp2p/go-libp2p-core/crypto"
+
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/crypto/ed25519"
+	lpkey "github.com/tendermint/tendermint/crypto/libp2p"
 	"github.com/tendermint/tendermint/crypto/secp256k1"
+	"github.com/tendermint/tendermint/p2p"
 	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
 	mcs "github.com/tendermint/tendermint/test/maverick/consensus"
 	"github.com/tendermint/tendermint/types"
@@ -60,6 +64,7 @@ type Testnet struct {
 	ValidatorUpdates map[int64]map[*Node]int64
 	Nodes            []*Node
 	KeyType          string
+	Libp2p           bool
 }
 
 // Node represents a Tendermint node in a testnet.
@@ -123,6 +128,7 @@ func LoadTestnet(file string) (*Testnet, error) {
 		ValidatorUpdates: map[int64]map[*Node]int64{},
 		Nodes:            []*Node{},
 		KeyType:          "ed25519",
+		Libp2p:           manifest.Libp2p,
 	}
 	if len(manifest.KeyType) != 0 {
 		testnet.KeyType = manifest.KeyType
@@ -140,11 +146,21 @@ func LoadTestnet(file string) (*Testnet, error) {
 
 	for _, name := range nodeNames {
 		nodeManifest := manifest.Nodes[name]
+		var nodeKey crypto.PrivKey
+		if manifest.Libp2p {
+			if privKey, _, err := lpcrypto.GenerateEd25519Key(crypto.CReader()); err != nil {
+				return nil, fmt.Errorf("error generating libp2p ed25519 keys: %v", err)
+			} else {
+				nodeKey = lpkey.PrivKey{K: privKey}
+			}
+		} else {
+			nodeKey = keyGen.Generate("ed25519")
+		}
 		node := &Node{
 			Name:             name,
 			Testnet:          testnet,
 			PrivvalKey:       keyGen.Generate(manifest.KeyType),
-			NodeKey:          keyGen.Generate("ed25519"),
+			NodeKey:          nodeKey,
 			IP:               ipGen.Next(),
 			ProxyPort:        proxyPortGen.Next(),
 			Mode:             ModeValidator,
@@ -449,7 +465,7 @@ func (n Node) AddressP2P(withID bool) string {
 	}
 	addr := fmt.Sprintf("%v:26656", ip)
 	if withID {
-		addr = fmt.Sprintf("%x@%v", n.NodeKey.PubKey().Address().Bytes(), addr)
+		addr = fmt.Sprintf("%v@%v", p2p.PubKeyToID(n.NodeKey.PubKey()), addr)
 	}
 	return addr
 }

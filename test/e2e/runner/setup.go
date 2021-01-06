@@ -41,6 +41,10 @@ const (
 
 // Setup sets up the testnet configuration.
 func Setup(testnet *e2e.Testnet) error {
+	if testnet.Libp2p {
+		logger.Info("Using libp2p")
+	}
+
 	logger.Info(fmt.Sprintf("Generating testnet files in %q", testnet.Dir))
 
 	err := os.MkdirAll(testnet.Dir, os.ModePerm)
@@ -311,6 +315,7 @@ func MakeConfig(node *e2e.Node) (*config.Config, error) {
 		}
 		cfg.P2P.PersistentPeers += peer.AddressP2P(true)
 	}
+	cfg.P2P.Libp2p = node.Testnet.Libp2p
 	return cfg, nil
 }
 

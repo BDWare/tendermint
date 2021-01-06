@@ -1,1 +1,3 @@
+libp2p = true
+
 [node.validator]

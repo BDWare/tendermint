@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/spf13/viper"
 
 	"github.com/tendermint/tendermint/abci/server"
@@ -20,6 +22,7 @@ import (
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/privval"
 	"github.com/tendermint/tendermint/proxy"
+	myp2p "github.com/tendermint/tendermint/test/builtin/libp2p"
 	mcs "github.com/tendermint/tendermint/test/maverick/consensus"
 	maverick "github.com/tendermint/tendermint/test/maverick/node"
 )
@@ -120,6 +123,14 @@ func startNode(cfg *Config) error {
 	if err != nil {
 		return err
 	}
+
+	var host host.Host
+	if tmcfg.P2P.Libp2p {
+		if host, err = myp2p.NewP2PHost(context.Background(), tmcfg); err != nil {
+			return fmt.Errorf("failed to create new libp2p host: %w", err)
+		}
+		logger.Info("Libp2p host created", "host.ID", host.ID(), "host.Addrs:", host.Addrs())
+	}
 	n, err := node.NewNode(tmcfg,
 		pval,
 		nodeKey,
@@ -128,6 +139,7 @@ func startNode(cfg *Config) error {
 		node.DefaultDBProvider,
 		node.DefaultMetricsProvider(tmcfg.Instrumentation),
 		nodeLogger,
+		host,
 	)
 	if err != nil {
 		return err
@@ -154,6 +166,18 @@ func startMaverick(cfg *Config) error {
 		misbehaviors[height] = mcs.MisbehaviorList[misbehaviorString]
 	}
 
+	var host host.Host
+	if !tmcfg.P2P.Libp2p {
+		if nodeKey, err = p2p.LoadOrGenNodeKey(tmcfg.NodeKeyFile()); err != nil {
+			return fmt.Errorf("failed to load or gen node key %s, err: %w", tmcfg.NodeKeyFile(), err)
+		}
+	} else {
+		if host, err = myp2p.NewP2PHost(context.Background(), tmcfg); err != nil {
+			return fmt.Errorf("failed to create new libp2p host: %w", err)
+		}
+		logger.Info("Libp2p host created", "host.ID", host.ID(), "host.Addrs:", host.Addrs())
+	}
+
 	n, err := maverick.NewNode(tmcfg,
 		maverick.LoadOrGenFilePV(tmcfg.PrivValidatorKeyFile(), tmcfg.PrivValidatorStateFile()),
 		nodeKey,
@@ -162,6 +186,7 @@ func startMaverick(cfg *Config) error {
 		maverick.DefaultDBProvider,
 		maverick.DefaultMetricsProvider(tmcfg.Instrumentation),
 		logger,
+		host,
 		misbehaviors,
 	)
 	if err != nil {
@@ -228,9 +253,11 @@ func setupNode() (*config.Config, log.Logger, *p2p.NodeKey, error) {
 	}
 	nodeLogger = nodeLogger.With("module", "main")
 
-	nodeKey, err := p2p.LoadOrGenNodeKey(tmcfg.NodeKeyFile())
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to load or gen node key %s: %w", tmcfg.NodeKeyFile(), err)
+	var nodeKey *p2p.NodeKey
+	if !tmcfg.P2P.Libp2p {
+		if nodeKey, err = p2p.LoadOrGenNodeKey(tmcfg.NodeKeyFile()); err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to load or gen node key %s: %w", tmcfg.NodeKeyFile(), err)
+		}
 	}
 
 	return tmcfg, nodeLogger, nodeKey, nil

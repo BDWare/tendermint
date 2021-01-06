@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
@@ -33,6 +34,8 @@ import (
 	"github.com/tendermint/tendermint/light"
 	mempl "github.com/tendermint/tendermint/mempool"
 	"github.com/tendermint/tendermint/p2p"
+	"github.com/tendermint/tendermint/p2p/libp2p"
+	lputil "github.com/tendermint/tendermint/p2p/libp2p/util"
 	"github.com/tendermint/tendermint/p2p/pex"
 	"github.com/tendermint/tendermint/privval"
 	"github.com/tendermint/tendermint/proxy"
@@ -45,6 +48,7 @@ import (
 	"github.com/tendermint/tendermint/state/txindex/null"
 	"github.com/tendermint/tendermint/statesync"
 	"github.com/tendermint/tendermint/store"
+	myp2p "github.com/tendermint/tendermint/test/builtin/libp2p"
 	cs "github.com/tendermint/tendermint/test/maverick/consensus"
 	"github.com/tendermint/tendermint/types"
 	tmtime "github.com/tendermint/tendermint/types/time"
@@ -119,9 +123,20 @@ type Provider func(*cfg.Config, log.Logger) (*Node, error)
 // PrivValidator, ClientCreator, GenesisDoc, and DBProvider.
 // It implements NodeProvider.
 func DefaultNewNode(config *cfg.Config, logger log.Logger, misbehaviors map[int64]cs.Misbehavior) (*Node, error) {
-	nodeKey, err := p2p.LoadOrGenNodeKey(config.NodeKeyFile())
-	if err != nil {
-		return nil, fmt.Errorf("failed to load or gen node key %s, err: %w", config.NodeKeyFile(), err)
+	var (
+		nodeKey *p2p.NodeKey
+		host    host.Host
+		err     error
+	)
+	if !config.P2P.Libp2p {
+		if nodeKey, err = p2p.LoadOrGenNodeKey(config.NodeKeyFile()); err != nil {
+			return nil, fmt.Errorf("failed to load or gen node key %s: %w", config.NodeKeyFile(), err)
+		}
+	} else {
+		if host, err = myp2p.NewP2PHost(context.Background(), config); err != nil {
+			return nil, fmt.Errorf("failed to create new libp2p host: %w", err)
+		}
+		logger.Info("Libp2p host created", "host.ID", host.ID(), "host.Addrs:", host.Addrs())
 	}
 
 	return NewNode(config,
@@ -132,6 +147,7 @@ func DefaultNewNode(config *cfg.Config, logger log.Logger, misbehaviors map[int6
 		DefaultDBProvider,
 		DefaultMetricsProvider(config.Instrumentation),
 		logger,
+		host,
 		misbehaviors,
 	)
 
@@ -223,12 +239,14 @@ type Node struct {
 	privValidator types.PrivValidator // local node's validator key
 
 	// network
-	transport   *p2p.MultiplexTransport
+	transport p2p.TransportLifecycle
+	// transport *p2p.MultiplexTransport
 	sw          *p2p.Switch  // p2p connections
 	addrBook    pex.AddrBook // known peers
 	nodeInfo    p2p.NodeInfo
 	nodeKey     *p2p.NodeKey // our node privkey
 	isListening bool
+	host        host.Host
 
 	// services
 	eventBus          *types.EventBus // pub/sub for services
@@ -524,6 +542,76 @@ func createTransport(
 	return transport, peerFilters
 }
 
+func createTransportWithLibp2p(
+	config *cfg.Config,
+	nodeInfo p2p.NodeInfo,
+	nodeKey *p2p.NodeKey,
+	proxyApp proxy.AppConns,
+	host host.Host,
+) (
+	*libp2p.LpTransport,
+	[]p2p.PeerFilterFunc,
+) {
+	var (
+		//mConnConfig = p2p.MConnConfig(config.P2P)
+		transport   = libp2p.NewLpTransport(nodeInfo, *nodeKey, host)
+		connFilters = []p2p.ConnFilterFunc{}
+		peerFilters = []p2p.PeerFilterFunc{}
+	)
+
+	if !config.P2P.AllowDuplicateIP {
+		connFilters = append(connFilters, p2p.ConnDuplicateIPFilter())
+	}
+
+	// Filter peers by addr or pubkey with an ABCI query.
+	// If the query return code is OK, add peer.
+	if config.FilterPeers {
+		connFilters = append(
+			connFilters,
+			// ABCI query for address filtering.
+			func(_ p2p.ConnSet, c net.Conn, _ []net.IP) error {
+				res, err := proxyApp.Query().QuerySync(abci.RequestQuery{
+					Path: fmt.Sprintf("/p2p/filter/addr/%s", c.RemoteAddr().String()),
+				})
+				if err != nil {
+					return err
+				}
+				if res.IsErr() {
+					return fmt.Errorf("error querying abci app: %v", res)
+				}
+
+				return nil
+			},
+		)
+
+		peerFilters = append(
+			peerFilters,
+			// ABCI query for ID filtering.
+			func(_ p2p.IPeerSet, p p2p.Peer) error {
+				res, err := proxyApp.Query().QuerySync(abci.RequestQuery{
+					Path: fmt.Sprintf("/p2p/filter/id/%s", p.ID()),
+				})
+				if err != nil {
+					return err
+				}
+				if res.IsErr() {
+					return fmt.Errorf("error querying abci app: %v", res)
+				}
+
+				return nil
+			},
+		)
+	}
+
+	//p2p.MultiplexTransportConnFilters(connFilters...)(transport)
+
+	// Limit the number of incoming connections.
+	//max := config.P2P.MaxNumInboundPeers + len(splitAndTrimEmpty(config.P2P.UnconditionalPeerIDs, ",", " "))
+	//p2p.MultiplexTransportMaxIncomingConnections(max)(transport)
+
+	return transport, peerFilters
+}
+
 func createSwitch(config *cfg.Config,
 	transport p2p.Transport,
 	p2pMetrics *p2p.Metrics,
@@ -558,25 +646,30 @@ func createSwitch(config *cfg.Config,
 }
 
 func createAddrBookAndSetOnSwitch(config *cfg.Config, sw *p2p.Switch,
-	p2pLogger log.Logger, nodeKey *p2p.NodeKey) (pex.AddrBook, error) {
+	p2pLogger log.Logger, nodeKey *p2p.NodeKey, host host.Host) (pex.AddrBook, error) {
 
 	addrBook := pex.NewAddrBook(config.P2P.AddrBookFile(), config.P2P.AddrBookStrict)
 	addrBook.SetLogger(p2pLogger.With("book", config.P2P.AddrBookFile()))
-
-	// Add ourselves to addrbook to prevent dialing ourselves
-	if config.P2P.ExternalAddress != "" {
-		addr, err := p2p.NewNetAddressString(p2p.IDAddressString(nodeKey.ID(), config.P2P.ExternalAddress))
-		if err != nil {
-			return nil, fmt.Errorf("p2p.external_address is incorrect: %w", err)
+	if !config.P2P.Libp2p {
+		// Add ourselves to addrbook to prevent dialing ourselves
+		if config.P2P.ExternalAddress != "" {
+			addr, err := p2p.NewNetAddressString(p2p.IDAddressString(nodeKey.ID(), config.P2P.ExternalAddress))
+			if err != nil {
+				return nil, fmt.Errorf("p2p.external_address is incorrect: %w", err)
+			}
+			addrBook.AddOurAddress(addr)
 		}
-		addrBook.AddOurAddress(addr)
-	}
-	if config.P2P.ListenAddress != "" {
-		addr, err := p2p.NewNetAddressString(p2p.IDAddressString(nodeKey.ID(), config.P2P.ListenAddress))
-		if err != nil {
-			return nil, fmt.Errorf("p2p.laddr is incorrect: %w", err)
+		if config.P2P.ListenAddress != "" {
+			addr, err := p2p.NewNetAddressString(p2p.IDAddressString(nodeKey.ID(), config.P2P.ListenAddress))
+			if err != nil {
+				return nil, fmt.Errorf("p2p.laddr is incorrect: %w", err)
+			}
+			addrBook.AddOurAddress(addr)
 		}
-		addrBook.AddOurAddress(addr)
+	} else {
+		for _, addr := range host.Addrs() {
+			addrBook.AddOurAddress(p2p.NewNetAddressLibp2pIDMultiaddr(host.ID(), addr))
+		}
 	}
 
 	sw.SetAddrBook(addrBook)
@@ -670,9 +763,18 @@ func NewNode(config *cfg.Config,
 	dbProvider DBProvider,
 	metricsProvider MetricsProvider,
 	logger log.Logger,
+	host host.Host,
 	misbehaviors map[int64]cs.Misbehavior,
 	options ...Option) (*Node, error) {
-
+	if config.P2P.Libp2p {
+		if host == nil {
+			return nil, fmt.Errorf("no libp2p host provided")
+		}
+		// If use libp2p, we don't need a pex any longer
+		config.P2P.PexReactor = false
+		// The parameter nodeKey is useless, overwrite it with libp2p private key
+		nodeKey = libp2p.GetNodeKeyFromLpPrivKey(host.Peerstore().PrivKey(host.ID()))
+	}
 	blockStore, stateDB, err := initDBs(config, dbProvider)
 	if err != nil {
 		return nil, err
@@ -797,13 +899,21 @@ func NewNode(config *cfg.Config,
 		config.StateSync.TempDir)
 	stateSyncReactor.SetLogger(logger.With("module", "statesync"))
 
-	nodeInfo, err := makeNodeInfo(config, nodeKey, txIndexer, genDoc, state)
+	nodeInfo, err := makeNodeInfo(config, nodeKey, txIndexer, genDoc, state, host)
 	if err != nil {
 		return nil, err
 	}
 
 	// Setup Transport.
-	transport, peerFilters := createTransport(config, nodeInfo, nodeKey, proxyApp)
+	var (
+		transport   p2p.Transport
+		peerFilters []p2p.PeerFilterFunc
+	)
+	if !config.P2P.Libp2p {
+		transport, peerFilters = createTransport(config, nodeInfo, nodeKey, proxyApp)
+	} else {
+		transport, peerFilters = createTransportWithLibp2p(config, nodeInfo, nodeKey, proxyApp, host)
+	}
 
 	// Setup Switch.
 	p2pLogger := logger.With("module", "p2p")
@@ -811,6 +921,10 @@ func NewNode(config *cfg.Config,
 		config, transport, p2pMetrics, peerFilters, mempoolReactor, bcReactor,
 		stateSyncReactor, consensusReactor, evidenceReactor, nodeInfo, nodeKey, p2pLogger,
 	)
+	// Add dht discovery peer to switch via peer manager if using libp2p transport.
+	if lt, ok := transport.(*libp2p.LpTransport); ok {
+		lt.SetPeerManager(sw)
+	}
 
 	err = sw.AddPersistentPeers(splitAndTrimEmpty(config.P2P.PersistentPeers, ",", " "))
 	if err != nil {
@@ -822,7 +936,7 @@ func NewNode(config *cfg.Config,
 		return nil, fmt.Errorf("could not add peer ids from unconditional_peer_ids field: %w", err)
 	}
 
-	addrBook, err := createAddrBookAndSetOnSwitch(config, sw, p2pLogger, nodeKey)
+	addrBook, err := createAddrBookAndSetOnSwitch(config, sw, p2pLogger, nodeKey, host)
 	if err != nil {
 		return nil, fmt.Errorf("could not create addrbook: %w", err)
 	}
@@ -856,7 +970,7 @@ func NewNode(config *cfg.Config,
 		genesisDoc:    genDoc,
 		privValidator: privValidator,
 
-		transport: transport,
+		transport: transport.(p2p.TransportLifecycle),
 		sw:        sw,
 		addrBook:  addrBook,
 		nodeInfo:  nodeInfo,
@@ -878,6 +992,7 @@ func NewNode(config *cfg.Config,
 		txIndexer:        txIndexer,
 		indexerService:   indexerService,
 		eventBus:         eventBus,
+		host:			  host,
 	}
 	node.BaseService = *service.NewBaseService(logger, "Node", node)
 
@@ -916,15 +1031,20 @@ func (n *Node) OnStart() error {
 	}
 
 	// Start the transport.
-	addr, err := p2p.NewNetAddressString(p2p.IDAddressString(n.nodeKey.ID(), n.config.P2P.ListenAddress))
-	if err != nil {
-		return err
-	}
-	if err := n.transport.Listen(*addr); err != nil {
-		return err
+	// we needn't listen here if using libp2p, because we have listened some address when starting libp2p host
+	if !n.config.P2P.Libp2p {
+		addr, err := p2p.NewNetAddressString(p2p.IDAddressString(n.nodeKey.ID(), n.config.P2P.ListenAddress))
+		if err != nil {
+			return err
+		}
+		if err := n.transport.Listen(*addr); err != nil {
+			return err
+		}
 	}
 
 	n.isListening = true
+
+	var err error
 
 	if n.config.Mempool.WalEnabled() {
 		err = n.mempool.InitWAL()
@@ -1009,6 +1129,12 @@ func (n *Node) OnStop() {
 		if err := n.prometheusSrv.Shutdown(context.Background()); err != nil {
 			// Error from closing listeners, or context timeout:
 			n.Logger.Error("Prometheus HTTP server Shutdown", "err", err)
+		}
+	}
+
+	if n.host != nil {
+		if err := n.host.Close(); err != nil {
+			n.Logger.Error("Error closing host", "err", err)
 		}
 	}
 }
@@ -1270,6 +1396,7 @@ func makeNodeInfo(
 	txIndexer txindex.TxIndexer,
 	genDoc *types.GenesisDoc,
 	state sm.State,
+	host host.Host,
 ) (p2p.NodeInfo, error) {
 	txIndexerStatus := "on"
 	if _, ok := txIndexer.(*null.TxIndex); ok {
@@ -1322,6 +1449,12 @@ func makeNodeInfo(
 	}
 
 	nodeInfo.ListenAddr = lAddr
+
+	// don't use config when use libp2p
+	// 0.0.0.0 ? The first multiAddr may be invalid, such as 127.0.0.1
+	if config.P2P.Libp2p {
+		nodeInfo.ListenAddr = lputil.Multiaddr2DialString(host.Addrs()[0])
+	}
 
 	err := nodeInfo.Validate()
 	return nodeInfo, err

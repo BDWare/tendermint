@@ -24,6 +24,7 @@ var (
 		},
 		"validators": {"genesis", "initchain"},
 		"keyType":    {types.ABCIPubKeyTypeEd25519, types.ABCIPubKeyTypeSecp256k1},
+		"Libp2p": {false, true},
 	}
 
 	// The following specify randomly chosen values for testnet nodes.
@@ -77,6 +78,7 @@ func generateTestnet(r *rand.Rand, opt map[string]interface{}) (e2e.Manifest, er
 		ValidatorUpdates: map[string]map[string]int64{},
 		Nodes:            map[string]*e2e.ManifestNode{},
 		KeyType:          opt["keyType"].(string),
+		Libp2p: 		  opt["libp2p"].(bool),
 	}
 
 	var numSeeds, numValidators, numFulls int
