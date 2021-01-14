@@ -49,10 +49,17 @@ github.com/aryann/difflib v0.0.0-20170710044230-e206f873d14a/go.mod h1:DAHtR1m6l
 github.com/aws/aws-lambda-go v1.13.3/go.mod h1:4UKl9IzQMoD+QF79YdCuzCwp8VbmG4VAQwij/eHl5CU=
 github.com/aws/aws-sdk-go v1.27.0/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
 github.com/aws/aws-sdk-go-v2 v0.18.0/go.mod h1:JWVYvqSMppoMJC0x5wdwiImzgXTI9FuZwxzkQq9wy+g=
+github.com/bdware/go-datastore v0.4.5-alpha.1/go.mod h1:TuUeyFQPAg7eTQe8y6lpiuuQxvZq4SG/OmpUbKHHkSY=
+github.com/bdware/go-datastore v0.4.5-alpha.2 h1:eReXUN6E1Yhy95549VTg4aPMnXDrW5Om4BfbMrXlt0U=
+github.com/bdware/go-datastore v0.4.5-alpha.2/go.mod h1:TuUeyFQPAg7eTQe8y6lpiuuQxvZq4SG/OmpUbKHHkSY=
+github.com/bdware/go-ds-leveldb v0.4.3-alpha.2 h1:E4daPhFJjQ9hbzJpF37p7MKDCxZb6Tbv57Nkc8lfQY8=
+github.com/bdware/go-ds-leveldb v0.4.3-alpha.2/go.mod h1:fiOO6L7IN8/5NaUeRBoczclL9K4DLwnHP+m/hCe1DBk=
 github.com/bdware/go-libp2p-kad-dht v0.11.0-bdw h1:bYA27S49kuzX7wkwDlTMB5dmfwGNCFayCokGBS25yGw=
 github.com/bdware/go-libp2p-kad-dht v0.11.0-bdw/go.mod h1:4pEctwk5WOE/N3d0NT1Or/MOq0vUb9QMkkM8BRwYoGI=
 github.com/bdware/go-libp2p-kbucket v0.4.7-bdw h1:GE0C1TrSfXc5RCoJ2TrFZ+zPRkWnFlqgzqk0KULod3Y=
 github.com/bdware/go-libp2p-kbucket v0.4.7-bdw/go.mod h1:3ySySowPeJXzmHgIynX/zfX2y71ycvJ9QAQh/5nXDJM=
+github.com/bdware/tm-db-go-datastore v0.1.1 h1:WvV3QdGma2o+T2JB8VK1utt8Vm9sovYcarwawCSv+xg=
+github.com/bdware/tm-db-go-datastore v0.1.1/go.mod h1:Xq3x31Wa8kajpitTnPy3TOMrkGXvlg3/HvDZ1VCsh+o=
 github.com/benbjohnson/clock v1.0.2 h1:Z0CN0Yb4ig9sGPXkvAQcGJfnrrMQ5QYLCMPRi9iD7YE=
 github.com/benbjohnson/clock v1.0.2/go.mod h1:bGMdMPoPVvcYyt1gHDf4J2KE153Yf9BuiUKYMaxlTDM=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973 h1:xJ4a3vCFaGF/jqvzLMYoU8P317H5OQ+Via4RmuPwCS0=

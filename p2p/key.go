@@ -17,7 +17,7 @@ import (
 
 // IDByteLength is the length of a crypto.Address. Currently only 20.
 // TODO: support other length addresses ?
-//const IDByteLength = crypto.AddressSize
+const IDByteLength = crypto.AddressSize
 
 //------------------------------------------------------------------------------
 // Persistent peer ID

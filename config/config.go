@@ -161,7 +161,7 @@ type BaseConfig struct { //nolint: maligned
 	// and verifying their commits
 	FastSyncMode bool `mapstructure:"fast_sync"`
 
-	// Database backend: goleveldb | cleveldb | boltdb | rocksdb
+	// Database backend: goleveldb | cleveldb | boltdb | rocksdb | badgerdb | go-datastore
 	// * goleveldb (github.com/syndtr/goleveldb - most popular implementation)
 	//   - pure go
 	//   - stable
@@ -180,6 +180,9 @@ type BaseConfig struct { //nolint: maligned
 	// * badgerdb (uses github.com/dgraph-io/badger)
 	//   - EXPERIMENTAL
 	//   - use badgerdb build tag (go build -tags badgerdb)
+	// * go-datastore (uses github.com/bdware/tm-db-go-datastore)
+	//	- EXPERIMENTAL
+	//	- only support goleveldb currently
 	DBBackend string `mapstructure:"db_backend"`
 
 	// Database directory
